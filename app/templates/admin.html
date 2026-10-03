@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Geo-Fence Studio — Smart Tourist Shield</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <style>
+        .admin-layout {
+            max-width: 1400px;
+            margin: 1.5rem auto;
+            padding: 0 1.5rem;
+            display: grid;
+            grid-template-columns: 440px 1fr;
+            gap: 1.5rem;
+        }
+        @media (max-width: 1024px) {
+            .admin-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        .form-label {
+            display: block;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 0.35rem;
+            font-weight: 600;
+        }
+        .form-control {
+            width: 100%;
+            padding: 0.65rem 0.85rem;
+            border-radius: var(--radius-sm);
+            background: #0f172a;
+            border: 1px solid var(--border-color);
+            color: white;
+            font-family: var(--font-main);
+            font-size: 0.9rem;
+        }
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        .zone-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            margin-top: 1rem;
+        }
+        .zone-table th, .zone-table td {
+            padding: 0.75rem 0.5rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .zone-table th {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Navigation -->
+    <nav class="navbar">
+        <a href="/admin" class="brand">
+            <div class="brand-icon" style="background: linear-gradient(135deg, #10b981, #06b6d4);">
+                <i class="fa-solid fa-draw-polygon"></i>
+            </div>
+            <span>Geo-Fence Perimeter Studio</span>
+        </a>
+        <div class="nav-links">
+            <a href="/" class="nav-link"><i class="fa-solid fa-house"></i> Home</a>
+            <a href="/tourist" class="nav-link"><i class="fa-solid fa-person-walking"></i> Tourist Portal</a>
+            <a href="/authority" class="nav-link"><i class="fa-solid fa-tower-broadcast"></i> Authority Command Center</a>
+            <a href="/admin" class="nav-link active"><i class="fa-solid fa-draw-polygon"></i> Geo-Fence Studio</a>
+            <a href="/verify" class="nav-link"><i class="fa-solid fa-qrcode"></i> ID Verifier</a>
+        </div>
+    </nav>
+
+    <div class="admin-layout">
+        
+        <!-- Left: Configuration & Existing Zones -->
+        <div>
+            <!-- Draw & Save Form -->
+            <div class="glass-panel" style="padding: 1.5rem; margin-bottom: 1.5rem;">
+                <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 0.5rem;">
+                    <i class="fa-solid fa-pen-ruler"></i> Define Perimeter Zone
+                </h3>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+                    Click directly on the map to place polygon boundary vertices (minimum 3 points required).
+                </p>
+
+                <form id="zoneForm">
+                    <div class="form-group">
+                        <label class="form-label">Zone Name</label>
+                        <input type="text" id="zoneName" placeholder="e.g. North Ridge Protected Buffer" required class="form-control">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Zone Classification</label>
+                        <select id="zoneType" class="form-control">
+                            <option value="SAFE">SAFE (Green - Tourist Area)</option>
+                            <option value="RESTRICTED">RESTRICTED (Amber - Permit / Buffer)</option>
+                            <option value="HIGH_RISK">HIGH_RISK (Red - Danger / Ravine / Cliff)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Description / Guidelines</label>
+                        <textarea id="zoneDesc" rows="2" placeholder="Instructions or hazard warnings..." class="form-control"></textarea>
+                    </div>
+
+                    <div style="background: rgba(0,0,0,0.3); border-radius: var(--radius-sm); padding: 0.75rem; margin-bottom: 1.25rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem;">
+                            <span>Vertices Placed:</span>
+                            <b id="vertexCount" style="color: var(--accent); font-family: var(--font-mono); font-size: 1.1rem;">0</b>
+                        </div>
+                        <div id="vertexCoordsPreview" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem; font-family: var(--font-mono);">
+                            Click on the map to begin drawing...
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 0.75rem;">
+                        <button type="button" id="btnClearDraw" class="btn btn-secondary" style="flex: 1;">
+                            <i class="fa-solid fa-eraser"></i> Clear
+                        </button>
+                        <button type="submit" id="btnSaveZone" class="btn btn-primary" style="flex: 2;">
+                            <i class="fa-solid fa-cloud-arrow-up"></i> Save Perimeter
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Existing Zones List -->
+            <div class="glass-panel" style="padding: 1.5rem;">
+                <h4 style="font-size: 1rem; font-weight: 700; margin-bottom: 0.5rem;">Active Security Zones</h4>
+                <div style="overflow-x: auto;">
+                    <table class="zone-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Type</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="zonesTableBody">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Map Studio Canvas -->
+        <div class="glass-panel" style="padding: 1.25rem; display: flex; flex-direction: column;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                <div>
+                    <h2 style="font-size: 1.2rem; font-weight: 700;">Interactive Perimeter Canvas</h2>
+                    <p style="font-size: 0.8rem; color: var(--text-muted);">
+                        Tip: Click to add vertices. Complete the boundary, then click "Save Perimeter".
+                    </p>
+                </div>
+            </div>
+            <div id="map" style="flex: 1; min-height: 650px;"></div>
+        </div>
+
+    </div>
+
+    <!-- Toast Notifications Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="/static/js/admin.js"></script>
+</body>
+</html>

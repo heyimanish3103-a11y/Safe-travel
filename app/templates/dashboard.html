@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Journey | My Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <style>
+        :root {
+            --primary:#1F9D72; --primary-glow:rgba(31,157,114,0.25);
+            --bg:#07080f; --glass:rgba(255,255,255,0.035);
+            --border:rgba(255,255,255,0.08); --text-dim:rgba(255,255,255,0.5);
+            --red:#ef4444; --blue:#38bdf8; --amber:#f59e0b;
+        }
+        *{margin:0;padding:0;box-sizing:border-box;font-family:'Outfit',sans-serif;}
+        body{background:var(--bg);color:#fff;min-height:100vh;overflow-x:hidden;}
+
+        .ambient{position:fixed;inset:0;z-index:0;pointer-events:none;}
+        .orb{position:absolute;border-radius:50%;filter:blur(90px);animation:drift 20s infinite alternate ease-in-out;}
+        .orb-1{width:600px;height:600px;background:rgba(31,157,114,0.12);top:-200px;right:-200px;}
+        .orb-2{width:400px;height:400px;background:rgba(56,189,248,0.06);bottom:-100px;left:-100px;animation-delay:-8s;}
+        @keyframes drift{from{transform:translate(0,0)}to{transform:translate(-60px,80px)}}
+
+        .navbar{position:fixed;top:0;width:100%;z-index:200;display:flex;align-items:center;justify-content:space-between;padding:1rem 2.5rem;background:rgba(7,8,15,0.7);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);}
+        .brand{font-size:1.5rem;font-weight:800;letter-spacing:3px;color:#fff;text-decoration:none;}
+        .brand span{color:var(--primary);}
+        .nav-center{display:flex;gap:0.3rem;}
+        .nav-tab{padding:0.5rem 1.2rem;border-radius:10px;border:none;background:transparent;color:rgba(255,255,255,0.6);font-size:0.9rem;font-weight:600;cursor:pointer;transition:0.2s;font-family:'Outfit',sans-serif;display:flex;align-items:center;gap:7px;}
+        .nav-tab:hover{background:rgba(255,255,255,0.06);color:#fff;}
+        .nav-tab.active{background:rgba(31,157,114,0.15);color:var(--primary);border:1px solid rgba(31,157,114,0.2);}
+        .nav-right{display:flex;align-items:center;gap:1rem;}
+        .nav-right i{font-size:1.2rem;color:var(--text-dim);cursor:pointer;transition:0.2s;}
+        .nav-right i:hover{color:#fff;}
+        .user-chip{display:flex;align-items:center;gap:10px;background:var(--glass);border:1px solid var(--border);border-radius:30px;padding:6px 14px 6px 8px;cursor:pointer;}
+        .avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--primary),#38bdf8);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.85rem;}
+        .user-name{font-size:0.9rem;font-weight:600;}
+
+        .page{position:relative;z-index:1;padding-top:80px;min-height:100vh;}
+
+        .view{display:none;padding:2rem 2.5rem;animation:fadeSlide 0.4s ease;}
+        .view.active{display:block;} #view-map.active{padding:1rem 1.5rem;}
+        @keyframes fadeSlide{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+
+        /* HOME */
+        .home-hero{margin-bottom:2rem;}
+        .home-hero h1{font-size:2.8rem;font-weight:800;letter-spacing:-1px;}
+        .home-hero h1 span{color:var(--primary);}
+        .home-hero p{color:var(--text-dim);margin-top:0.5rem;font-size:1rem;}
+
+        .cards-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.2rem;margin-bottom:2rem;}
+        .action-card{background:var(--glass);border:1px solid var(--border);border-radius:20px;padding:2rem;cursor:pointer;transition:all 0.3s ease;position:relative;overflow:hidden;}
+        .action-card::before{content:'';position:absolute;inset:0;background:var(--card-glow,transparent);opacity:0;transition:0.3s;}
+        .action-card:hover{transform:translateY(-5px);border-color:var(--card-border,var(--border));}
+        .action-card:hover::before{opacity:1;}
+        .action-card.green{--card-glow:linear-gradient(135deg,rgba(31,157,114,0.08),transparent);--card-border:rgba(31,157,114,0.4);}
+        .action-card.blue{--card-glow:linear-gradient(135deg,rgba(56,189,248,0.08),transparent);--card-border:rgba(56,189,248,0.4);}
+        .action-card.amber{--card-glow:linear-gradient(135deg,rgba(245,158,11,0.08),transparent);--card-border:rgba(245,158,11,0.4);}
+        .action-card.red{--card-glow:linear-gradient(135deg,rgba(239,68,68,0.08),transparent);--card-border:rgba(239,68,68,0.4);}
+        .card-icon{width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;margin-bottom:1.2rem;}
+        .green .card-icon{background:rgba(31,157,114,0.15);color:var(--primary);}
+        .blue  .card-icon{background:rgba(56,189,248,0.15);color:var(--blue);}
+        .amber .card-icon{background:rgba(245,158,11,0.15);color:var(--amber);}
+        .red   .card-icon{background:rgba(239,68,68,0.15);color:var(--red);}
+        .action-card h3{font-size:1.1rem;font-weight:700;margin-bottom:0.4rem;}
+        .action-card p{font-size:0.85rem;color:var(--text-dim);line-height:1.5;}
+        .card-arrow{position:absolute;bottom:1.5rem;right:1.5rem;font-size:1rem;color:var(--text-dim);transition:0.2s;}
+        .action-card:hover .card-arrow{color:#fff;transform:translateX(4px);}
+
+        .stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem;margin-bottom:2rem;}
+        .stat-box{background:var(--glass);border:1px solid var(--border);border-radius:16px;padding:1.2rem 1.4rem;}
+        .stat-box .s-val{font-size:1.8rem;font-weight:800;color:var(--primary);}
+        .stat-box .s-label{font-size:0.78rem;color:var(--text-dim);margin-top:4px;text-transform:uppercase;letter-spacing:0.8px;}
+
+        .last-trip-banner{background:var(--glass);border:1px solid var(--border);border-radius:20px;padding:1.5rem 2rem;display:flex;align-items:center;gap:2rem;flex-wrap:wrap;}
+        .ltp-icon{font-size:2.5rem;flex-shrink:0;}
+        .ltp-info h3{font-size:1.1rem;font-weight:700;margin-bottom:0.3rem;}
+        .ltp-info p{font-size:0.85rem;color:var(--text-dim);}
+        .ltp-badge{display:flex;gap:8px;flex-wrap:wrap;margin-top:0.8rem;}
+        .badge{font-size:0.75rem;font-weight:700;padding:4px 12px;border-radius:20px;background:rgba(31,157,114,0.12);border:1px solid rgba(31,157,114,0.25);color:var(--primary);}
+        .ltp-cta{margin-left:auto;padding:0.7rem 1.6rem;background:var(--primary);border:none;border-radius:12px;color:#fff;font-weight:700;cursor:pointer;font-size:0.9rem;transition:0.3s;font-family:'Outfit',sans-serif;}
+        .ltp-cta:hover{background:#17825d;}
+
+        /* PLAN */
+        .section-head{margin-bottom:1.8rem;}
+        .section-head h2{font-size:2rem;font-weight:700;}
+        .section-head p{color:var(--text-dim);margin-top:0.4rem;}
+        .plan-form{background:var(--glass);border:1px solid var(--border);border-radius:20px;padding:2rem;max-width:700px;}
+        .form-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;}
+        .f-group{display:flex;flex-direction:column;gap:6px;}
+        .f-group.full{grid-column:1/-1;}
+        .f-label{font-size:0.78rem;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--text-dim);}
+        .f-input{padding:0.9rem 1.1rem;background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.1);border-radius:12px;color:#fff;font-size:0.95rem;outline:none;transition:0.3s;font-family:'Outfit',sans-serif;}
+        .f-input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(31,157,114,0.12);}
+        .f-input::placeholder{color:rgba(255,255,255,0.3);}
+        select.f-input option{background:#0d1117;}
+        .type-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+        .type-opt{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:0.8rem;text-align:center;cursor:pointer;transition:0.2s;font-size:0.85rem;font-weight:600;}
+        .type-opt i{display:block;font-size:1.2rem;margin-bottom:6px;color:var(--text-dim);transition:0.2s;}
+        .type-opt:hover,.type-opt.sel{border-color:var(--primary);color:var(--primary);}
+        .type-opt:hover i,.type-opt.sel i{color:var(--primary);}
+        .type-opt.sel{background:rgba(31,157,114,0.12);}
+        .btn-plan-submit{width:100%;margin-top:1.5rem;padding:1rem;border-radius:14px;background:linear-gradient(135deg,var(--primary),#17825d);border:none;color:#fff;font-size:1.05rem;font-weight:700;cursor:pointer;transition:0.3s;font-family:'Outfit',sans-serif;}
+        .btn-plan-submit:hover{opacity:0.9;transform:translateY(-2px);}
+        .plan-result{margin-top:1.5rem;background:rgba(31,157,114,0.05);border:1px solid rgba(31,157,114,0.2);border-radius:16px;padding:1.5rem;display:none;}
+        .plan-result h4{color:var(--primary);font-size:1rem;margin-bottom:1rem;}
+        .plan-item{display:flex;gap:12px;align-items:flex-start;margin-bottom:0.8rem;}
+        .plan-item i{color:var(--primary);margin-top:3px;flex-shrink:0;}
+        .plan-item span{font-size:0.9rem;line-height:1.5;color:rgba(255,255,255,0.85);}
+
+        /* INSIGHTS */
+        .ins-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1.2rem;}
+        .news-card{background:var(--glass);border:1px solid var(--border);border-radius:18px;overflow:hidden;transition:0.3s;cursor:pointer;}
+        .news-card:hover{border-color:rgba(255,255,255,0.2);transform:translateY(-4px);}
+        .news-img{width:100%;height:160px;object-fit:cover;}
+        .news-body{padding:1.2rem;}
+        .news-tag{font-size:0.7rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--primary);margin-bottom:6px;}
+        .news-title{font-size:1rem;font-weight:700;line-height:1.4;margin-bottom:6px;}
+        .news-meta{font-size:0.78rem;color:var(--text-dim);}
+        .weather-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:1rem;margin-bottom:1.5rem;}
+        .weather-day{background:var(--glass);border:1px solid var(--border);border-radius:14px;padding:1rem;text-align:center;}
+        .weather-day .wd-icon{font-size:1.8rem;margin-bottom:6px;}
+        .weather-day .wd-day{font-size:0.75rem;color:var(--text-dim);}
+        .weather-day .wd-temp{font-size:1.2rem;font-weight:800;margin-top:4px;}
+
+        /* HISTORY */
+        .history-list{display:flex;flex-direction:column;gap:1rem;max-width:750px;}
+        .trip-row{background:var(--glass);border:1px solid var(--border);border-radius:18px;padding:1.4rem 1.8rem;display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;transition:0.3s;cursor:pointer;}
+        .trip-row:hover{border-color:rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);}
+        .trip-dest-icon{width:48px;height:48px;border-radius:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.5rem;background:rgba(31,157,114,0.12);}
+        .trip-details h4{font-size:1rem;font-weight:700;}
+        .trip-details p{font-size:0.83rem;color:var(--text-dim);margin-top:3px;}
+        .trip-badges{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;}
+        .t-badge{font-size:0.72rem;padding:3px 10px;border-radius:20px;font-weight:600;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);}
+        .trip-date{margin-left:auto;font-size:0.8rem;color:var(--text-dim);text-align:right;flex-shrink:0;}
+
+        /* MAP */
+        .map-view-layout{display:flex;gap:18px;height:calc(100vh - 130px);}
+        .map-sidebar{width:300px;flex-shrink:0;display:flex;flex-direction:column;gap:1rem;overflow-y:auto;}
+        .map-sidebar::-webkit-scrollbar{width:3px;}
+        .map-sidebar::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:3px;}
+        .ms-card{background:var(--glass);border:1px solid var(--border);border-radius:16px;padding:1.1rem 1.2rem;}
+        .ms-card .mc-label{font-size:0.7rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text-dim);margin-bottom:8px;}
+        .ms-card .mc-val{font-size:1rem;font-weight:600;}
+        .zone-list{display:flex;flex-direction:column;gap:8px;margin-top:8px;}
+        .zone-item{display:flex;align-items:center;gap:10px;padding:8px 10px;background:rgba(0,0,0,0.2);border-radius:10px;font-size:0.82rem;}
+        .zone-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+        .zone-dot.safe{background:#22c55e;box-shadow:0 0 6px #22c55e;}
+        .zone-dot.caution{background:#f59e0b;box-shadow:0 0 6px #f59e0b;}
+        .zone-dot.danger{background:#ef4444;box-shadow:0 0 6px #ef4444;}
+        .gps-status-bar{display:flex;align-items:center;gap:8px;font-size:0.82rem;color:var(--text-dim);}
+        .gps-live-dot{width:9px;height:9px;border-radius:50%;background:var(--primary);animation:gPulse 1.6s infinite;}
+        @keyframes gPulse{0%{box-shadow:0 0 0 0 rgba(31,157,114,0.7)}70%{box-shadow:0 0 0 8px rgba(31,157,114,0)}100%{box-shadow:0 0 0 0 rgba(31,157,114,0)}}
+        .map-box{flex:1;min-height:500px;border-radius:20px;overflow:hidden;border:1px solid var(--border);box-shadow:0 20px 50px rgba(0,0,0,0.4);position:relative;}
+        #liveMap{width:100%;height:100%;min-height:500px;}
+        .map-coords-pill{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:1000;background:rgba(7,8,15,0.85);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.1);border-radius:30px;padding:7px 16px;font-size:0.75rem;color:rgba(255,255,255,0.7);font-family:'Courier New',monospace;pointer-events:none;white-space:nowrap;}
+        .speed-hud{position:absolute;top:14px;right:14px;z-index:1000;background:rgba(7,8,15,0.85);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:10px 14px;text-align:center;pointer-events:none;}
+        .speed-hud .sv{font-size:1.6rem;font-weight:800;color:var(--blue);line-height:1;}
+        .speed-hud .su{font-size:0.65rem;color:var(--text-dim);margin-top:2px;}
+        .status-pill{display:inline-flex;align-items:center;gap:6px;font-size:0.78rem;font-weight:700;padding:5px 12px;border-radius:20px;}
+        .status-pill.green{background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);color:#22c55e;}
+        .status-pill.blue{background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.25);color:#38bdf8;}
+        .leaflet-tile-pane{filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);}
+        .you-dot{width:16px;height:16px;background:#3b82f6;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 6px rgba(59,130,246,0.3),0 0 18px rgba(59,130,246,0.6);}
+        @media(max-width:768px){.nav-center{display:none;}.view{padding:1.2rem;}.form-row{grid-template-columns:1fr;}.map-view-layout{flex-direction:column;height:auto;}.map-sidebar{width:100%;}.map-box{height:60vh;}}
+    </style>
+</head>
+<body>
+<div class="ambient"><div class="orb orb-1"></div><div class="orb orb-2"></div></div>
+
+<nav class="navbar">
+    <a href="/" class="brand">JOURNEY<span>.</span></a>
+    <div class="nav-center">
+        <button class="nav-tab active" id="tab-home"     onclick="switchView('home')">    <i class="fa-solid fa-house"></i> Home</button>
+        <button class="nav-tab"        id="tab-plan"     onclick="switchView('plan')">    <i class="fa-solid fa-map-marked-alt"></i> Plan Trip</button>
+        <button class="nav-tab"        id="tab-insights" onclick="switchView('insights')"><i class="fa-solid fa-newspaper"></i> Insights</button>
+        <button class="nav-tab"        id="tab-history"  onclick="switchView('history')"> <i class="fa-solid fa-clock-rotate-left"></i> History</button>
+        <button class="nav-tab"        id="tab-map"      onclick="switchView('map')">     <i class="fa-solid fa-location-dot"></i> Live Map</button>
+    </div>
+    <div class="nav-right">
+        <i class="fa-regular fa-bell"></i>
+        <div class="user-chip"><div class="avatar" id="avatarInitial">?</div><span class="user-name" id="userName">Loading...</span></div>
+        <i class="fa-solid fa-arrow-right-from-bracket" title="Logout" onclick="logout()" style="color:rgba(239,68,68,0.7)"></i>
+    </div>
+</nav>
+
+<div class="page">
+
+<!-- HOME -->
+<div class="view active" id="view-home">
+    <div class="home-hero">
+        <h1>Welcome back, <span id="heroName">Traveler</span> &#128075;</h1>
+        <p>Your personal travel command center. What are we planning today?</p>
+    </div>
+    <div class="stats-row">
+        <div class="stat-box"><div class="s-val">4</div><div class="s-label">Total Trips</div></div>
+        <div class="stat-box"><div class="s-val">2,840</div><div class="s-label">km Travelled</div></div>
+        <div class="stat-box"><div class="s-val">7</div><div class="s-label">Cities Visited</div></div>
+        <div class="stat-box"><div class="s-val" style="color:var(--blue)">SAFE</div><div class="s-label">Safety Status</div></div>
+    </div>
+    <div class="cards-grid">
+        <div class="action-card green" onclick="switchView('plan')">
+            <div class="card-icon"><i class="fa-solid fa-route"></i></div>
+            <h3>Plan a Trip</h3>
+            <p>Set your destination, travel mode, and dates. Get a personalised itinerary instantly.</p>
+            <i class="fa-solid fa-arrow-right card-arrow"></i>
+        </div>
+        <div class="action-card blue" onclick="switchView('insights')">
+            <div class="card-icon"><i class="fa-solid fa-globe"></i></div>
+            <h3>View Insights</h3>
+            <p>Latest travel news, weather forecasts, and safety advisories for popular destinations.</p>
+            <i class="fa-solid fa-arrow-right card-arrow"></i>
+        </div>
+        <div class="action-card amber" onclick="switchView('history')">
+            <div class="card-icon"><i class="fa-solid fa-clock-rotate-left"></i></div>
+            <h3>Trip History</h3>
+            <p>Relive your past adventures. Review routes, travel modes, and memories.</p>
+            <i class="fa-solid fa-arrow-right card-arrow"></i>
+        </div>
+        <div class="action-card red" onclick="switchView('map')">
+            <div class="card-icon"><i class="fa-solid fa-map-location-dot"></i></div>
+            <h3>Live Map</h3>
+            <p>See your real-time GPS position and safety zones around you on a live Leaflet map.</p>
+            <i class="fa-solid fa-arrow-right card-arrow"></i>
+        </div>
+    </div>
+    <div class="last-trip-banner">
+        <div class="ltp-icon">&#9992;&#65039;</div>
+        <div class="ltp-info">
+            <h3>Last Trip: <span id="lastTripDest">Manali, Himachal Pradesh</span></h3>
+            <p id="lastTripMeta">Sep 15 - Sep 22, 2026 &nbsp;&middot;&nbsp; 7 days</p>
+            <div class="ltp-badge">
+                <span class="badge" id="ltMode">&#9992; Flight</span>
+                <span class="badge" id="ltType">Adventure</span>
+                <span class="badge" id="ltGroup">Solo</span>
+            </div>
+        </div>
+        <button class="ltp-cta" onclick="switchView('history')">View History</button>
+    </div>
+</div>
+
+<!-- PLAN TRIP -->
+<div class="view" id="view-plan">
+    <div class="section-head">
+        <h2><i class="fa-solid fa-route" style="color:var(--primary);margin-right:10px;"></i>Plan Your Trip</h2>
+        <p>Fill in the details below and we will build your personalised journey plan.</p>
+    </div>
+    <div class="plan-form">
+        <div class="form-row">
+            <div class="f-group"><div class="f-label">From</div><input class="f-input" id="planFrom" placeholder="Your city (e.g. Delhi)"></div>
+            <div class="f-group"><div class="f-label">Destination</div><input class="f-input" id="planTo" placeholder="Where to? (e.g. Manali)"></div>
+        </div>
+        <div class="form-row">
+            <div class="f-group"><div class="f-label">Departure Date</div><input class="f-input" id="planDepart" type="date"></div>
+            <div class="f-group"><div class="f-label">Return Date</div><input class="f-input" id="planReturn" type="date"></div>
+        </div>
+        <div class="form-row">
+            <div class="f-group"><div class="f-label">Travellers</div><input class="f-input" id="planTravellers" type="number" min="1" max="20" value="1"></div>
+            <div class="f-group"><div class="f-label">Budget (INR)</div><input class="f-input" id="planBudget" placeholder="e.g. 25000"></div>
+        </div>
+        <div class="f-group full" style="margin-bottom:1rem;">
+            <div class="f-label" style="margin-bottom:10px;">Travel Mode</div>
+            <div class="type-grid" id="modeGrid">
+                <div class="type-opt sel" onclick="selMode(this)"><i class="fa-solid fa-plane"></i>Flight</div>
+                <div class="type-opt" onclick="selMode(this)"><i class="fa-solid fa-train"></i>Train</div>
+                <div class="type-opt" onclick="selMode(this)"><i class="fa-solid fa-car"></i>Road</div>
+                <div class="type-opt" onclick="selMode(this)"><i class="fa-solid fa-bus"></i>Bus</div>
+            </div>
+        </div>
+        <div class="f-group full" style="margin-bottom:0;">
+            <div class="f-label" style="margin-bottom:10px;">Trip Type</div>
+            <div class="type-grid" id="typeGrid">
+                <div class="type-opt sel" onclick="selType(this)"><i class="fa-solid fa-umbrella-beach"></i>Leisure</div>
+                <div class="type-opt" onclick="selType(this)"><i class="fa-solid fa-mountain-sun"></i>Adventure</div>
+                <div class="type-opt" onclick="selType(this)"><i class="fa-solid fa-briefcase"></i>Business</div>
+                <div class="type-opt" onclick="selType(this)"><i class="fa-solid fa-people-group"></i>Family</div>
+            </div>
+        </div>
+        <button class="btn-plan-submit" onclick="generatePlan()"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate My Trip Plan</button>
+        <div class="plan-result" id="planResult">
+            <h4><i class="fa-solid fa-sparkles"></i> Your Personalised Trip Plan</h4>
+            <div id="planItems"></div>
+            <div style="margin-top:1.2rem;">
+                <button onclick="confirmPlan()" style="padding:0.8rem 2rem;background:var(--primary);border:none;border-radius:10px;color:#fff;font-weight:700;cursor:pointer;font-family:'Outfit',sans-serif;font-size:0.95rem;">
+                    <i class="fa-solid fa-check"></i> Confirm &amp; Start Journey
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- INSIGHTS -->
+<div class="view" id="view-insights">
+    <div class="section-head">
+        <h2><i class="fa-solid fa-newspaper" style="color:var(--blue);margin-right:10px;"></i>Travel Insights</h2>
+        <p>Weather forecasts, travel news, and safety advisories.</p>
+    </div>
+    <div class="f-label" style="margin-bottom:10px;">7-Day Forecast</div>
+    <div class="weather-strip" id="weatherStrip"></div>
+    <div class="f-label" style="margin-bottom:12px;margin-top:1.5rem;">Latest Travel News</div>
+    <div class="ins-grid" id="newsGrid"></div>
+</div>
+
+<!-- HISTORY -->
+<div class="view" id="view-history">
+    <div class="section-head">
+        <h2><i class="fa-solid fa-clock-rotate-left" style="color:var(--amber);margin-right:10px;"></i>Trip History</h2>
+        <p>All your past journeys in one place.</p>
+    </div>
+    <div class="history-list" id="historyList"></div>
+</div>
+
+<!-- LIVE MAP -->
+<div class="view" id="view-map">
+    
+    <div style="margin-bottom: 15px; display: flex; gap: 10px;">
+        <input type="text" id="mapSearchInput" placeholder="Search a destination (e.g. Pune, Goa)..." style="flex:1; padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.05); color: white;" />
+        <button onclick="searchMap()" class="btn btn-primary" style="padding: 12px 24px; border-radius: 8px; border: none; background: #3b82f6; color: white; cursor: pointer; font-weight: 600;">Check Zones</button>
+    </div>
+<div class="map-view-layout">
+        <div class="map-sidebar">
+            <div class="ms-card">
+                <div class="mc-label">GPS Status</div>
+                <div class="gps-status-bar"><div class="gps-live-dot" id="gpsDot"></div><span id="gpsLabel">Acquiring...</span></div>
+                <div style="margin-top:10px;font-size:0.78rem;color:var(--text-dim);" id="gpsAccuracy">Accuracy: --</div>
+            </div>
+            <div class="ms-card">
+                <div class="mc-label">My Position</div>
+                <div class="mc-val" id="myCoords" style="font-size:0.82rem;font-family:'Courier New';color:rgba(255,255,255,0.7);">--</div>
+            </div>
+            <div class="ms-card">
+                <div class="mc-label">Safety Status</div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">
+                    <span class="status-pill green"><i class="fa-solid fa-shield-check"></i> Area Safe</span>
+                    <span class="status-pill blue"><i class="fa-solid fa-satellite-dish"></i> Live</span>
+                </div>
+            </div>
+            <div class="ms-card">
+                <div class="mc-label">Zones Around You</div>
+                <div class="zone-list">
+                    <div class="zone-item"><div class="zone-dot safe"></div><span>Tourist Safe Zone - 0.4 km</span></div>
+                    <div class="zone-item"><div class="zone-dot caution"></div><span>Caution Area - 1.2 km</span></div>
+                    <div class="zone-item"><div class="zone-dot safe"></div><span>Police Post - 0.8 km</span></div>
+                    <div class="zone-item"><div class="zone-dot danger"></div><span>Restricted Zone - 2.5 km</span></div>
+                </div>
+            </div>
+            <div class="ms-card">
+                <div class="mc-label">Speed</div>
+                <div class="mc-val"><span id="mapSpeed" style="color:var(--blue);font-size:1.4rem;font-weight:800;">0</span> km/h</div>
+            </div>
+            <div class="ms-card"><div class="mc-label">Distance Today</div><div class="mc-val" id="mapDist">0 m</div></div>
+        </div>
+        <div style="margin-bottom: 15px; display: flex; gap: 10px;">
+            <input type="text" id="mapSearchInput" placeholder="Search a destination (e.g. Pune, Goa)..." style="flex:1; padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.05); color: white;" />
+            <button onclick="searchMap()" class="btn btn-primary" style="padding: 12px 24px; border-radius: 8px; border: none; background: #3b82f6; color: white; cursor: pointer; font-weight: 600;">Check Zones</button>
+        </div>
+        <div class="map-box">
+            <div id="liveMap"></div>
+            <div class="speed-hud"><div class="sv" id="hudSpeed">0</div><div class="su">km/h</div></div>
+            <div class="map-coords-pill" id="coordsPill">Acquiring coordinates...</div>
+        </div>
+    </div>
+</div>
+
+</div><!-- .page -->
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
+async function searchMap() {
+    var query = document.getElementById('mapSearchInput').value.trim();
+    if(!query) return;
+    
+    var btn = document.querySelector('button[onclick="searchMap()"]');
+    var oldText = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Searching...';
+    
+    try {
+        var res = await fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(query));
+        var data = await res.json();
+        
+        btn.innerHTML = oldText;
+        
+        if(data && data.length > 0) {
+            var sLat = parseFloat(data[0].lat);
+            var sLng = parseFloat(data[0].lon);
+            lmap.flyTo([sLat, sLng], 13, {animate: true, duration: 1.5});
+            
+            var loc = query.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+            
+            if(window.searchZones) {
+                window.searchZones.forEach(z => lmap.removeLayer(z));
+            }
+            window.searchZones = [];
+            
+            var z1 = L.circle([sLat + 0.005, sLng + 0.005], {radius: 400, color: '#22c55e', fill: true, fillColor: 'rgba(34,197,94,0.06)'}).addTo(lmap).bindPopup('<b style="color:#22c55e">&#128994; Safe Zone (Central Plaza, '+loc+')</b><br>Low Risk & Good Signal.<br><i>Reason: Normal crowds, active police patrol.</i>');
+            var z2 = L.circle([sLat - 0.008, sLng + 0.015], {radius: 350, color: '#eab308', fill: true, fillColor: 'rgba(234,179,8,0.06)'}).addTo(lmap).bindPopup('<b style="color:#eab308">&#128993; Connectivity Alert (Outskirts, '+loc+')</b><br>Low Risk but Weak Signal.<br><i>Reason: Remote area, network drops.</i>');
+            var z3 = L.circle([sLat - 0.012, sLng - 0.005], {radius: 500, color: '#f97316', fill: true, fillColor: 'rgba(249,115,22,0.06)'}).addTo(lmap).bindPopup('<b style="color:#f97316">&#128992; Caution Area (Market Road, '+loc+')</b><br>Medium Risk + Weak Signal.<br><i>Reason: High pickpocketing reports.</i>');
+            var z4 = L.circle([sLat + 0.018, sLng - 0.008], {radius: 300, color: '#ef4444', fill: true, fillColor: 'rgba(239,68,68,0.06)'}).addTo(lmap).bindPopup('<b style="color:#ef4444">&#128308; Danger Zone (Industrial Park, '+loc+')</b><br>High Risk (>61%).<br><i>Reason: Criminal activities reported.</i>');
+            var z5 = L.circle([sLat + 0.01, sLng + 0.02], {radius: 250, color: '#991b1b', fill: true, fillColor: 'rgba(153,27,27,0.06)'}).addTo(lmap).bindPopup('<b style="color:#991b1b">&#128308; Critical Zone (Forest Trail, '+loc+')</b><br>High Risk & Weak Signal.<br><i>Reason: Isolated spot. DO NOT ENTER.</i>');
+            
+            window.searchZones.push(z1, z2, z3, z4, z5);
+            
+            if(window.searchMarker) lmap.removeLayer(window.searchMarker);
+            window.searchMarker = L.marker([sLat, sLng]).addTo(lmap).bindPopup('<b style="font-size:16px;">'+loc+'</b><br>Searched Location').openPopup();
+
+        } else {
+            alert("Location not found! Try adding city or country name.");
+        }
+    } catch(e) {
+        btn.innerHTML = oldText;
+        console.error(e);
+        alert("Error fetching location.");
+    }
+}
+
+</script>
+<script>
+var tourist = JSON.parse(localStorage.getItem('tourist_info') || 'null');
+if (!tourist) { window.location.href = '/login'; }
+var uname = (tourist && tourist.name) ? tourist.name : 'Traveler';
+document.getElementById('heroName').textContent     = uname.split(' ')[0];
+document.getElementById('userName').textContent     = uname.split(' ')[0];
+document.getElementById('avatarInitial').textContent= uname.charAt(0).toUpperCase();
+
+var mapInited = false;
+function switchView(name) {
+    document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('active'); });
+    document.querySelectorAll('.nav-tab').forEach(function(t){ t.classList.remove('active'); });
+    document.getElementById('view-'+name).classList.add('active');
+    document.getElementById('tab-'+name).classList.add('active');
+
+    if (name === 'map') {
+        if (!mapInited) {
+            mapInited = true;
+            // Wait for view to be visible before init
+            setTimeout(initLiveMap, 200);
+        } else if (lmap) {
+            // Already inited - just refresh size (fixes grey tiles after tab switch)
+            setTimeout(function() { lmap.invalidateSize(true); }, 100);
+        }
+    }
+}
+function logout(){ localStorage.removeItem('tourist_info'); window.location.href='/login'; }
+
+/* HISTORY */
+var tripHistory=[
+    {icon:'&#127956;&#65039;',dest:'Manali, Himachal Pradesh',date:'Sep 15 - Sep 22, 2026',days:'7 days',mode:'Flight',type:'Adventure',group:'Solo',km:'1,420'},
+    {icon:'&#127958;&#65039;',dest:'Goa, India',date:'Jul 4 - Jul 8, 2026',days:'5 days',mode:'Train',type:'Leisure',group:'Partner',km:'580'},
+    {icon:'&#128332;',dest:'Jaipur, Rajasthan',date:'Mar 20 - Mar 23, 2026',days:'4 days',mode:'Road',type:'Culture',group:'Family',km:'270'},
+    {icon:'&#128508;',dest:'Paris, France',date:'Dec 24 - Jan 2, 2025',days:'10 days',mode:'Flight',type:'Leisure',group:'Partner',km:'7,200'},
+];
+var lt=tripHistory[0];
+document.getElementById('lastTripDest').textContent=lt.dest;
+document.getElementById('ltMode').textContent=lt.mode;
+document.getElementById('ltType').textContent=lt.type;
+document.getElementById('ltGroup').textContent=lt.group;
+
+function buildHistory(){
+    var l=document.getElementById('historyList'); l.innerHTML='';
+    tripHistory.forEach(function(t){
+        l.innerHTML+='<div class="trip-row"><div class="trip-dest-icon">'+t.icon+'</div>'+
+        '<div class="trip-details"><h4>'+t.dest+'</h4><p>'+t.date+' &middot; '+t.days+' &middot; '+t.km+' km</p>'+
+        '<div class="trip-badges"><span class="t-badge">'+t.mode+'</span><span class="t-badge">'+t.type+'</span><span class="t-badge">'+t.group+'</span></div></div>'+
+        '<div class="trip-date">'+t.date.split(' - ')[0]+'</div></div>';
+    });
+}
+buildHistory();
+
+  /* REAL-TIME 7-DAY WEATHER */
+  async function load7DayForecast() {
+      var strip = document.getElementById('weatherStrip');
+      strip.innerHTML = '<div style="color:var(--text-dim); padding:20px; font-weight:600;">Fetching Live Forecast from Satellite...</div>';
+      try {
+          // You can connect this to HTML5 Geolocation, using Delhi coordinates as default
+          let lat = 28.6139; let lng = 77.2090; 
+          let res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&daily=weathercode,temperature_2m_max&timezone=auto`);
+          let data = await res.json();
+          
+          if(data && data.daily) {
+              strip.innerHTML = '';
+              let daily = data.daily;
+              let dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+              
+              for(let i=0; i<7; i++) {
+                  let dateObj = new Date(daily.time[i]);
+                  let dayStr = i === 0 ? 'Today' : dayNames[dateObj.getDay()];
+                  let temp = Math.round(daily.temperature_2m_max[i]);
+                  let wCode = daily.weathercode[i];
+                  
+                  let iconStr = '&#9728;&#65039;';
+                  if(wCode >= 1 && wCode <= 3) { iconStr = '&#9925;'; }
+                  else if(wCode >= 51 && wCode <= 67) { iconStr = '&#127780;&#65039;'; }
+                  else if(wCode >= 71) { iconStr = '&#10052;&#65039;'; }
+                  else if(wCode >= 95) { iconStr = '&#127783;&#65039;'; }
+                  
+                  strip.innerHTML += '<div class="weather-day"><div class="wd-icon">'+iconStr+'</div><div class="wd-day">'+dayStr+'</div><div class="wd-temp">'+temp+'&deg;</div></div>';
+              }
+          }
+      } catch(e) {
+          strip.innerHTML = '<div style="color:var(--text-dim); padding:20px;">Failed to load live forecast.</div>';
+      }
+  }
+  load7DayForecast();
+
+/* NEWS */
+var news=[
+    {tag:'Safety',title:'Government Expands Tourist Safe Zones in North India',date:'2 hours ago',img:'https://images.unsplash.com/photo-1605649487212-47bdab064df7?w=600&auto=format'},
+    {tag:'Weather',title:'Heavy Snowfall Expected in Manali This Weekend',date:'5 hours ago',img:'https://images.unsplash.com/photo-1595815771614-ade9d652a65d?w=600&auto=format'},
+    {tag:'Travel',title:'IndiGo Launches New Direct Flights to Leh from Delhi',date:'Yesterday',img:'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=600&auto=format'},
+    {tag:'Advisory',title:'Goa Tourism Dept Issues Night-Travel Safety Guidelines',date:'Yesterday',img:'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?w=600&auto=format'},
+    {tag:'Trending',title:'10 Hidden Gems in Rajasthan You Should Visit in 2026',date:'2 days ago',img:'https://images.unsplash.com/photo-1477587458883-47145ed94245?w=600&auto=format'},
+    {tag:'Budget',title:'Best Budget Hotels in Paris Under Rs 8,000 Per Night',date:'3 days ago',img:'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=600&auto=format'},
+];
+var ng=document.getElementById('newsGrid');
+news.forEach(function(n){ ng.innerHTML+='<div class="news-card"><img class="news-img" src="'+n.img+'" alt="'+n.title+'"><div class="news-body"><div class="news-tag">'+n.tag+'</div><div class="news-title">'+n.title+'</div><div class="news-meta">'+n.date+'</div></div></div>'; });
+
+/* PLAN FORM */
+var selModeVal='Flight',selTypeVal='Leisure';
+function selMode(el){ document.querySelectorAll('#modeGrid .type-opt').forEach(function(e){e.classList.remove('sel');}); el.classList.add('sel'); selModeVal=el.textContent.trim(); }
+function selType(el){ document.querySelectorAll('#typeGrid .type-opt').forEach(function(e){e.classList.remove('sel');}); el.classList.add('sel'); selTypeVal=el.textContent.trim(); }
+function generatePlan(){
+    var from=document.getElementById('planFrom').value.trim()||'Your City';
+    var to=document.getElementById('planTo').value.trim()||'Destination';
+    var dep=document.getElementById('planDepart').value||'TBD';
+    var ret=document.getElementById('planReturn').value||'TBD';
+    var pax=document.getElementById('planTravellers').value||'1';
+    var bud=document.getElementById('planBudget').value||'Flexible';
+    var items=[
+        {icon:'fa-plane-departure',text:selModeVal+' from '+from+' to '+to+' on '+dep},
+        {icon:'fa-hotel',text:'Accommodation in '+to+' for '+pax+' traveller(s) - budget approx Rs '+bud},
+        {icon:'fa-map-pin',text:'Sightseeing & local transport in '+to+' ('+selTypeVal+' itinerary)'},
+        {icon:'fa-utensils',text:'Local dining recommendations and food safety tips'},
+        {icon:'fa-shield-halved',text:'Real-time safety monitoring active throughout your journey'},
+        {icon:'fa-plane-arrival',text:'Return '+selModeVal.toLowerCase()+' from '+to+' on '+ret},
+    ];
+    var html='';
+    items.forEach(function(it){ html+='<div class="plan-item"><i class="fa-solid '+it.icon+'"></i><span>'+it.text+'</span></div>'; });
+    document.getElementById('planItems').innerHTML=html;
+    var res=document.getElementById('planResult'); res.style.display='block';
+    res.scrollIntoView({behavior:'smooth',block:'nearest'});
+    localStorage.setItem('trip_dest',to);
+}
+function confirmPlan(){
+    var to=document.getElementById('planTo').value.trim()||'Destination';
+    localStorage.setItem('trip_dest',to);
+    window.location.href='/planning';
+}
+
+/* LIVE MAP */
+var lmap,lMarker,lAccCircle;
+var llat=28.6139,llng=77.2090,lpLat=28.6139,lpLng=77.2090,lDist=0;
+function hvs(la1,lo1,la2,lo2){ var R=6371,dLa=(la2-la1)*Math.PI/180,dLo=(lo2-lo1)*Math.PI/180; var a=Math.sin(dLa/2)*Math.sin(dLa/2)+Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dLo/2)*Math.sin(dLo/2); return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)); }
+function initLiveMap() {
+    // Create Leaflet map - CartoDB Dark Matter tiles (FREE, no API key)
+    lmap = L.map('liveMap', {
+        zoomControl: false,
+        preferCanvas: false
+    }).setView([llat, llng], 14);
+
+    // Use standard OSM tiles (no API key needed)
+    var tiles = L.tileLayer(
+        'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            maxZoom: 19
+        }
+    );
+    tiles.addTo(lmap);
+
+    // Zoom controls bottom right
+    L.control.zoom({ position: 'bottomright' }).addTo(lmap);
+
+    // Glowing user marker
+    var icon = L.divIcon({
+        className: '',
+        html: '<div class="you-dot"></div>',
+        iconSize: [16, 16],
+        iconAnchor: [8, 8]
+    });
+    lMarker = L.marker([llat, llng], { icon: icon }).addTo(lmap);
+    lMarker.bindPopup('<b style="color:#1F9D72">You are here</b>');
+
+    // GPS accuracy circle
+    lAccCircle = L.circle([llat, llng], {
+        radius: 80,
+        color: 'rgba(31,157,114,0.6)',
+        fillColor: 'rgba(31,157,114,0.08)',
+        fillOpacity: 1,
+        weight: 1.5
+    }).addTo(lmap);
+
+    
+    // Zones array to track for alerts
+    window.dangerZones = [];
+
+    // 1. Safe Zone (Low risk + Good signal)
+    L.circle([llat + 0.005, llng + 0.005], {
+        radius: 400, color: '#22c55e', weight: 2,
+        fill: true, fillColor: 'rgba(34,197,94,0.06)', dashArray: '6 4'
+    }).addTo(lmap)
+      .bindPopup('<b style="color:#22c55e">&#128994; Safe Zone</b><br>Low risk (0-30%) + Good Signal');
+
+    // 2. Low-risk but Connectivity Alert (Low risk + Weak signal)
+    L.circle([llat - 0.008, llng + 0.015], {
+        radius: 350, color: '#eab308', weight: 2,
+        fill: true, fillColor: 'rgba(234,179,8,0.06)', dashArray: '6 4'
+    }).addTo(lmap)
+      .bindPopup('<b style="color:#eab308">&#128993; Low-risk + Connectivity Alert</b><br>Low risk but Weak Signal');
+
+    // 3. Caution + Weak Network (Medium risk + Weak signal)
+    L.circle([llat - 0.012, llng - 0.005], {
+        radius: 500, color: '#f97316', weight: 2,
+        fill: true, fillColor: 'rgba(249,115,22,0.06)', dashArray: '6 4'
+    }).addTo(lmap)
+      .bindPopup('<b style="color:#f97316">&#128992; Caution + Weak Network</b><br>Medium risk (31-61%) + Weak Signal<br>Crowded/Danger possible');
+
+    // 4. Danger Zone (High risk + Good signal)
+    var dz1 = L.circle([llat + 0.018, llng - 0.008], {
+        radius: 300, color: '#ef4444', weight: 2,
+        fill: true, fillColor: 'rgba(239,68,68,0.06)', dashArray: '6 4'
+    }).addTo(lmap)
+      .bindPopup('<b style="color:#ef4444">&#128308; Danger Zone</b><br>High risk (>61%) + Good Signal<br>Restricted Area');
+    window.dangerZones.push({lat: llat + 0.018, lng: llng - 0.008, radius: 300, name: 'Danger Zone'});
+
+    // 5. Critical Zone (High risk + Weak signal)
+    var dz2 = L.circle([llat + 0.01, llng + 0.02], {
+        radius: 250, color: '#991b1b', weight: 2,
+        fill: true, fillColor: 'rgba(153,27,27,0.06)', dashArray: '6 4'
+    }).addTo(lmap)
+      .bindPopup('<b style="color:#991b1b">&#128308; Critical Zone</b><br>High risk (>61%) + Weak Signal<br>Extremely Dangerous');
+    window.dangerZones.push({lat: llat + 0.01, lng: llng + 0.02, radius: 250, name: 'Critical Zone'});
+
+    var policeIcon = L.divIcon({
+        className: '',
+        html: '<div style="background:#38bdf8;width:12px;height:12px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 8px #38bdf8;"></div>',
+        iconSize: [12, 12], iconAnchor: [6, 6]
+    });
+    L.marker([llat + 0.008, llng - 0.003], { icon: policeIcon })
+     .addTo(lmap)
+     .bindPopup('<b style="color:#38bdf8">&#128268; Police Post</b><br>0.8 km away');
+
+    updateMapC(llat, llng);
+
+    // IMPORTANT: call invalidateSize after DOM settles
+    setTimeout(function() { lmap.invalidateSize(true); }, 300);
+    setTimeout(function() { lmap.invalidateSize(true); }, 800);
+
+    startMapGPS();
+}
+
+function startMapGPS(){
+    if(!navigator.geolocation){startMapSim();return;}
+    document.getElementById('gpsLabel').textContent='Acquiring GPS...';
+    navigator.geolocation.getCurrentPosition(function(p){
+        llat=p.coords.latitude;llng=p.coords.longitude;lpLat=llat;lpLng=llng;
+        lmap.setView([llat,llng],16,{animate:true});
+        lMarker.setLatLng([llat,llng]);lAccCircle.setLatLng([llat,llng]);lAccCircle.setRadius(p.coords.accuracy);
+        updateMapC(llat,llng);
+        document.getElementById('gpsLabel').textContent='Live GPS Active';
+        document.getElementById('gpsAccuracy').textContent='Accuracy: +/-'+Math.round(p.coords.accuracy)+'m';
+        document.getElementById('gpsDot').style.background='var(--primary)';
+        navigator.geolocation.watchPosition(function(pos){
+            var d=hvs(llat,llng,pos.coords.latitude,pos.coords.longitude);
+            llat=pos.coords.latitude;llng=pos.coords.longitude;
+            if(d>0.001)lDist+=d;
+            var spd=pos.coords.speed?Math.round(pos.coords.speed*3.6):0;
+            moveM(llat,llng,pos.coords.accuracy,spd);
+        },function(){startMapSim();},{enableHighAccuracy:true,maximumAge:2000});
+    },function(){
+        document.getElementById('gpsLabel').textContent='Using IP location';
+        document.getElementById('gpsDot').style.background='#f59e0b';
+        fetch('https://ipapi.co/json/').then(function(r){return r.json();}).then(function(d){
+            if(d.latitude){llat=parseFloat(d.latitude);llng=parseFloat(d.longitude);lmap.setView([llat,llng],13,{animate:true});lMarker.setLatLng([llat,llng]);lAccCircle.setLatLng([llat,llng]);lAccCircle.setRadius(2000);updateMapC(llat,llng);}
+            startMapSim();
+        }).catch(startMapSim);
+    },{enableHighAccuracy:true,timeout:8000});
+}
+function startMapSim(){
+    setInterval(function(){
+        lpLat=llat;lpLng=llng;llat+=(Math.random()*0.0005)+0.00003;llng+=(Math.random()*0.0006)-0.0003;
+        var d=hvs(lpLat,lpLng,llat,llng);lDist+=d;
+        moveM(llat,llng,80,Math.floor(Math.random()*20)+15);
+    },3000);
+}
+function moveM(la,lo,acc,spd){
+    lMarker.setLatLng([la,lo]);
+    lAccCircle.setLatLng([la,lo]);
+    lAccCircle.setRadius(acc||50);
+    lmap.panTo([la,lo],{animate:true,duration:1.2});
+    document.getElementById('mapSpeed').textContent=spd||0;
+    document.getElementById('hudSpeed').textContent=spd||0;
+    document.getElementById('mapDist').textContent=lDist<1?(lDist*1000).toFixed(0)+' m':lDist.toFixed(2)+' km';
+    updateMapC(la,lo);
+
+    // Check danger zones
+    if (window.dangerZones) {
+        window.dangerZones.forEach(function(dz) {
+            // distance in meters
+            var dist = hvs(la, lo, dz.lat, dz.lng) * 1000;
+            if (dist < dz.radius) {
+                if (!dz.alerted) {
+                    alert("URGENT ALERT: You have entered a " + dz.name + "! This area is highly restricted. Please turn back immediately for your safety.");
+                    dz.alerted = true; // only alert once per zone
+                    
+                    // Show notification in app if possible
+                    var pill = document.querySelector('.status-pill');
+                    if (pill) {
+                        pill.className = 'status-pill';
+                        pill.style.background = 'rgba(239,68,68,0.2)';
+                        pill.style.color = '#ef4444';
+                        pill.style.border = '1px solid #ef4444';
+                        pill.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> IN DANGER ZONE';
+                    }
+                }
+            } else {
+                dz.alerted = false; // reset if they leave
+            }
+        });
+    }
+}
+function updateMapC(la,lo){
+    var t=Math.abs(la).toFixed(5)+'deg '+(la>=0?'N':'S')+'  '+Math.abs(lo).toFixed(5)+'deg '+(lo>=0?'E':'W');
+    document.getElementById('coordsPill').textContent=t;
+    document.getElementById('myCoords').textContent=t;
+}
+
+async function searchMap() {
+    var query = document.getElementById('mapSearchInput').value.trim();
+    if(!query) return;
+    
+    var btn = document.querySelector('button[onclick="searchMap()"]');
+    var oldText = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Searching...';
+    
+    try {
+        var res = await fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(query));
+        var data = await res.json();
+        
+        btn.innerHTML = oldText;
+        
+        if(data && data.length > 0) {
+            var sLat = parseFloat(data[0].lat);
+            var sLng = parseFloat(data[0].lon);
+            lmap.flyTo([sLat, sLng], 13, {animate: true, duration: 1.5});
+            
+            var loc = query.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+            
+            if(window.searchZones) {
+                window.searchZones.forEach(z => lmap.removeLayer(z));
+            }
+            window.searchZones = [];
+            
+            var z1 = L.circle([sLat + 0.005, sLng + 0.005], {radius: 400, color: '#22c55e', fill: true, fillColor: 'rgba(34,197,94,0.06)'}).addTo(lmap).bindPopup('<b style="color:#22c55e">&#128994; Safe Zone (Central Plaza, '+loc+')</b><br>Low Risk & Good Signal.<br><i>Reason: Normal crowds, active police patrol.</i>');
+            var z2 = L.circle([sLat - 0.008, sLng + 0.015], {radius: 350, color: '#eab308', fill: true, fillColor: 'rgba(234,179,8,0.06)'}).addTo(lmap).bindPopup('<b style="color:#eab308">&#128993; Connectivity Alert (Outskirts, '+loc+')</b><br>Low Risk but Weak Signal.<br><i>Reason: Remote area, network drops.</i>');
+            var z3 = L.circle([sLat - 0.012, sLng - 0.005], {radius: 500, color: '#f97316', fill: true, fillColor: 'rgba(249,115,22,0.06)'}).addTo(lmap).bindPopup('<b style="color:#f97316">&#128992; Caution Area (Market Road, '+loc+')</b><br>Medium Risk + Weak Signal.<br><i>Reason: High pickpocketing reports.</i>');
+            var z4 = L.circle([sLat + 0.018, sLng - 0.008], {radius: 300, color: '#ef4444', fill: true, fillColor: 'rgba(239,68,68,0.06)'}).addTo(lmap).bindPopup('<b style="color:#ef4444">&#128308; Danger Zone (Industrial Park, '+loc+')</b><br>High Risk (>61%).<br><i>Reason: Criminal activities reported.</i>');
+            var z5 = L.circle([sLat + 0.01, sLng + 0.02], {radius: 250, color: '#991b1b', fill: true, fillColor: 'rgba(153,27,27,0.06)'}).addTo(lmap).bindPopup('<b style="color:#991b1b">&#128308; Critical Zone (Forest Trail, '+loc+')</b><br>High Risk & Weak Signal.<br><i>Reason: Isolated spot. DO NOT ENTER.</i>');
+            
+            window.searchZones.push(z1, z2, z3, z4, z5);
+            
+            if(window.searchMarker) lmap.removeLayer(window.searchMarker);
+            window.searchMarker = L.marker([sLat, sLng]).addTo(lmap).bindPopup('<b style="font-size:16px;">'+loc+'</b><br>Searched Location').openPopup();
+
+        } else {
+            alert("Location not found! Try adding city or country name.");
+        }
+    } catch(e) {
+        btn.innerHTML = oldText;
+        console.error(e);
+        alert("Error fetching location.");
+    }
+}
+
+</script>
+</body>
+</html>

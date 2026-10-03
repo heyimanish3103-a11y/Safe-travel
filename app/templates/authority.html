@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authority Tactical Command Center — Smart Tourist Shield</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <style>
+        .command-layout {
+            padding: 1.5rem 2rem;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.25rem;
+            margin-bottom: 1.5rem;
+        }
+        @media (max-width: 1024px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        .stat-card {
+            padding: 1.25rem 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .stat-val {
+            font-size: 2rem;
+            font-weight: 800;
+            font-family: var(--font-mono);
+            margin-top: 0.25rem;
+        }
+        .stat-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            letter-spacing: 0.05em;
+            font-weight: 700;
+        }
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.35rem;
+        }
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 480px;
+            gap: 1.5rem;
+        }
+        @media (max-width: 1200px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        .incident-card {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            transition: all 0.2s ease;
+        }
+        .incident-card:hover {
+            border-color: var(--border-highlight);
+            transform: translateX(3px);
+        }
+        .incident-card.high-threat {
+            border-left: 4px solid var(--danger);
+            background: rgba(239, 68, 68, 0.05);
+        }
+        .incident-card.medium-threat {
+            border-left: 4px solid var(--warning);
+        }
+        .incident-card.low-threat {
+            border-left: 4px solid var(--success);
+        }
+        .filter-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.5rem;
+        }
+        .filter-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            font-weight: 600;
+            padding: 0.4rem 0.8rem;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+        }
+        .filter-btn.active {
+            background: rgba(99, 102, 241, 0.2);
+            color: #818cf8;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Navigation -->
+    <nav class="navbar">
+        <a href="/authority" class="brand">
+            <div class="brand-icon" style="background: linear-gradient(135deg, #ef4444, #8b5cf6);">
+                <i class="fa-solid fa-tower-broadcast"></i>
+            </div>
+            <span>Tactical Emergency Command Center</span>
+        </a>
+        <div class="nav-links">
+            <a href="/" class="nav-link"><i class="fa-solid fa-house"></i> Home</a>
+            <a href="/tourist" class="nav-link"><i class="fa-solid fa-person-walking"></i> Tourist Portal</a>
+            <a href="/authority" class="nav-link active"><i class="fa-solid fa-tower-broadcast"></i> Authority Command Center</a>
+            <a href="/admin" class="nav-link"><i class="fa-solid fa-draw-polygon"></i> Geo-Fence Studio</a>
+            <a href="/verify" class="nav-link"><i class="fa-solid fa-qrcode"></i> ID Verifier</a>
+            <button id="btnOpenVerifyModal" class="btn btn-secondary btn-sm" style="margin-left: 1rem;">
+                <i class="fa-solid fa-qrcode"></i> ID Verification Scanner
+            </button>
+        </div>
+    </nav>
+
+    <div class="command-layout">
+        
+        <!-- Metrics Bar -->
+        <div class="stats-grid">
+            <div class="glass-panel stat-card">
+                <div>
+                    <div class="stat-label">Active Tracked Tourists</div>
+                    <div class="stat-val" id="statTourists" style="color: #60a5fa;">0</div>
+                </div>
+                <div class="stat-icon" style="background: rgba(96, 165, 250, 0.15); color: #60a5fa;">
+                    <i class="fa-solid fa-users"></i>
+                </div>
+            </div>
+
+            <div class="glass-panel stat-card">
+                <div>
+                    <div class="stat-label">Open Incidents</div>
+                    <div class="stat-val" id="statOpenIncidents" style="color: #f87171;">0</div>
+                </div>
+                <div class="stat-icon" style="background: rgba(239, 68, 68, 0.15); color: #f87171;">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+            </div>
+
+            <div class="glass-panel stat-card">
+                <div>
+                    <div class="stat-label">High-Threat Alarms</div>
+                    <div class="stat-val" id="statHighThreat" style="color: #ef4444;">0</div>
+                </div>
+                <div class="stat-icon" style="background: rgba(239, 68, 68, 0.2); color: #ef4444;">
+                    <i class="fa-solid fa-skull-crossbones"></i>
+                </div>
+            </div>
+
+            <div class="glass-panel stat-card">
+                <div>
+                    <div class="stat-label">Configured Zones</div>
+                    <div class="stat-val" id="statZones" style="color: #34d399;">0</div>
+                </div>
+                <div class="stat-icon" style="background: rgba(16, 185, 129, 0.15); color: #34d399;">
+                    <i class="fa-solid fa-draw-polygon"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Workspace -->
+        <div class="main-grid">
+            
+            <!-- Map Area -->
+            <div class="glass-panel" style="padding: 1.25rem; display: flex; flex-direction: column;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <div>
+                        <h2 style="font-size: 1.2rem; font-weight: 700;">Tactical Perimeter Surveillance Map</h2>
+                        <p style="font-size: 0.85rem; color: var(--text-muted);">Real-time tourist telemetry & active breach alarms</p>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                        <span id="wsStatusBadge" class="badge badge-low"><i class="fa-solid fa-wifi"></i> TELEMETRY LIVE</span>
+                    </div>
+                </div>
+                <div id="map" style="flex: 1; min-height: 600px;"></div>
+            </div>
+
+            <!-- Real-Time Incident Triage Feed -->
+            <div class="glass-panel" style="padding: 1.25rem; display: flex; flex-direction: column;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                    <div>
+                        <h2 style="font-size: 1.2rem; font-weight: 700;">AI Threat Triage Feed</h2>
+                        <p style="font-size: 0.8rem; color: var(--text-muted);">Live incident prioritization queue</p>
+                    </div>
+                    <button id="btnRefreshIncidents" class="btn btn-secondary btn-sm" title="Refresh">
+                        <i class="fa-solid fa-rotate-right"></i>
+                    </button>
+                </div>
+
+                <div class="filter-tabs">
+                    <button class="filter-btn active" data-filter="ALL">All (<span id="countAll">0</span>)</button>
+                    <button class="filter-btn" data-filter="HIGH">High Threat</button>
+                    <button class="filter-btn" data-filter="OPEN">Open</button>
+                    <button class="filter-btn" data-filter="RESOLVED">Resolved</button>
+                </div>
+
+                <div id="incidentFeed" style="flex: 1; overflow-y: auto; max-height: 560px; padding-right: 4px;">
+                    <!-- Incidents rendered dynamically -->
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Digital ID Verification Modal -->
+    <div id="verifyModal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 550px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+                <h3 style="font-size: 1.2rem; font-weight: 700;">
+                    <i class="fa-solid fa-shield-halved" style="color: #6366f1;"></i> Field ID Blockchain Verification
+                </h3>
+                <button id="btnCloseVerifyModal" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem;">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 1.25rem;">
+                <input type="text" id="verifyInputId" placeholder="Enter Digital Tourist ID (e.g. TID-2026-001-PRIYA)" 
+                       style="flex: 1; padding: 0.65rem; border-radius: var(--radius-sm); background: #1e293b; border: 1px solid var(--border-color); color: white; font-family: var(--font-mono); font-size: 0.85rem;">
+                <button id="btnExecuteVerify" class="btn btn-primary btn-sm"><i class="fa-solid fa-magnifying-glass"></i> Verify</button>
+                <button id="btnAuthScanCamera" class="btn btn-secondary btn-sm" title="Scan with Camera"><i class="fa-solid fa-camera"></i></button>
+            </div>
+
+            <div id="authQrReader" style="display: none; margin-bottom: 1rem; border-radius: 8px; overflow: hidden; border: 1px solid var(--border-color); background: #000;"></div>
+
+            <div id="verifyResultContainer" style="display: none;">
+                <!-- Result dynamically rendered -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Dispatch Unit Modal (Workflow Diagram 2) -->
+    <div id="dispatchModal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 480px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+                <h3 style="font-size: 1.2rem; font-weight: 700; color: #f87171;">
+                    <i class="fa-solid fa-truck-medical"></i> Tactical Response Dispatch
+                </h3>
+                <button id="btnCloseDispatchModal" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem;">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <input type="hidden" id="dispatchIncidentId">
+            <div style="margin-bottom: 1rem;">
+                <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.35rem;">Assigned Response Team</label>
+                <select id="dispatchUnitSelect" style="width: 100%; padding: 0.65rem; border-radius: var(--radius-sm); background: #1e293b; border: 1px solid var(--border-color); color: white; font-family: var(--font-main);">
+                    <option value="Rapid Response Tactical Unit Alpha">Rapid Response Tactical Unit Alpha (ETA 3 mins)</option>
+                    <option value="Paramedic Emergency Medical Unit 2">Paramedic Emergency Medical Unit 2 (ETA 5 mins)</option>
+                    <option value="Forest Ranger Mountain Rescue Division">Forest Ranger Mountain Rescue Division (ETA 8 mins)</option>
+                    <option value="Heritage Tourist Police Patrol Beta">Heritage Tourist Police Patrol Beta (ETA 2 mins)</option>
+                </select>
+            </div>
+            <div style="margin-bottom: 1.25rem;">
+                <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.35rem;">Dispatch Directives / Notes</label>
+                <textarea id="dispatchNotes" rows="2" style="width: 100%; padding: 0.65rem; border-radius: var(--radius-sm); background: #1e293b; border: 1px solid var(--border-color); color: white; font-family: var(--font-main);" placeholder="e.g. Approach with emergency first aid kit..."></textarea>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+                <button id="btnCancelDispatch" class="btn btn-secondary">Cancel</button>
+                <button id="btnConfirmDispatch" class="btn btn-primary" style="background: #ef4444; border-color: #ef4444;">
+                    <i class="fa-solid fa-paper-plane"></i> Deploy Unit Now
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Emergency Siren Audio -->
+    <audio id="sirenAudio" preload="auto">
+        <source src="https://assets.mixkit.co/active_storage/sfx/2874/2874-preview.mp3" type="audio/mpeg">
+    </audio>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script src="/static/js/authority.js"></script>
+</body>
+</html>

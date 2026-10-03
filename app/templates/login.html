@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Journey | Log In</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Outfit', sans-serif; }
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            color: #fff;
+            overflow: hidden;
+            background-color: #000;
+        }
+
+        /* Background Slider with Motion Effect */
+        .bg-slider {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 0;
+            overflow: hidden;
+        }
+        
+        .slide {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-size: cover;
+            background-position: center;
+            opacity: 0;
+            animation: zoomFade 24s infinite;
+        }
+
+        .slide:nth-child(1) {
+            background-image: url('https://images.unsplash.com/photo-1506929562872-bb421503ef21?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');
+            animation-delay: 0s;
+        }
+        .slide:nth-child(2) {
+            background-image: url('https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');
+            animation-delay: 8s;
+        }
+        .slide:nth-child(3) {
+            background-image: url('https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');
+            animation-delay: 16s;
+        }
+
+        @keyframes zoomFade {
+            0% { opacity: 0; transform: scale(1); }
+            10% { opacity: 1; }
+            33% { opacity: 1; transform: scale(1.1); }
+            43% { opacity: 0; transform: scale(1.15); }
+            100% { opacity: 0; transform: scale(1.15); }
+        }
+
+        .overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(135deg, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.8) 100%);
+            z-index: 1;
+        }
+
+        .login-container {
+            position: relative;
+            z-index: 2;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            padding: 3rem;
+            border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 420px;
+            text-align: center;
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .logo {
+            font-size: 2rem;
+            font-weight: 800;
+            margin-bottom: 2rem;
+            display: block;
+            text-decoration: none;
+            color: #fff;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+        .logo span { color: #1F9D72; }
+
+        h2 { font-weight: 600; font-size: 1.5rem; margin-bottom: 1.5rem; color: #fff; }
+
+        .btn-google {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            width: 100%;
+            padding: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            color: #fff;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 1.5rem;
+            font-size: 1rem;
+        }
+        .btn-google:hover { background: rgba(255, 255, 255, 0.2); transform: translateY(-2px); }
+        
+        .divider {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.85rem;
+        }
+        .divider::before, .divider::after {
+            content: ''; flex: 1; border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .divider::before { margin-right: .5em; }
+        .divider::after { margin-left: .5em; }
+
+        .form-group {
+            margin-bottom: 1.2rem;
+            text-align: left;
+        }
+        .form-group label {
+            display: block; font-size: 0.85rem; font-weight: 400; color: rgba(255, 255, 255, 0.8); margin-bottom: 0.4rem;
+        }
+        .form-group input {
+            width: 100%; padding: 1rem; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 12px; outline: none; transition: 0.3s;
+            background: rgba(0, 0, 0, 0.2); color: #fff; font-size: 1rem;
+        }
+        .form-group input:focus { border-color: #1F9D72; background: rgba(0, 0, 0, 0.4); box-shadow: 0 0 10px rgba(31, 157, 114, 0.3); }
+        .form-group input::placeholder { color: rgba(255, 255, 255, 0.4); }
+
+        .btn-submit {
+            width: 100%; padding: 1rem; background: #1F9D72; color: #fff; font-weight: 600; font-size: 1rem; border: none; border-radius: 12px; cursor: pointer; transition: all 0.3s ease; margin-top: 1rem; box-shadow: 0 4px 15px rgba(31, 157, 114, 0.4);
+        }
+        .btn-submit:hover { background: #157F5A; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(31, 157, 114, 0.6); }
+
+        .switch-link {
+            margin-top: 1.5rem; font-size: 0.9rem; color: rgba(255, 255, 255, 0.7);
+        }
+        .switch-link a { color: #1F9D72; font-weight: 600; text-decoration: none; cursor: pointer; transition: 0.2s; }
+        .switch-link a:hover { text-decoration: underline; color: #28c992; }
+
+    </style>
+</head>
+<body>
+    <div class="bg-slider">
+        <div class="slide"></div>
+        <div class="slide"></div>
+        <div class="slide"></div>
+    </div>
+    
+    <div class="overlay"></div>
+    <div class="login-container">
+        <a href="/" class="logo">JOURNEY<span>.</span></a>
+
+        <!-- Login Section -->
+        <div id="login-section">
+            <h2>Welcome back</h2>
+            <button class="btn-google" id="googleLoginBtn"><i class="fa-brands fa-google"></i> Continue with Google</button>
+            <div class="divider">or continue with email</div>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <input type="email" id="loginEmail" required placeholder="you@example.com">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="loginPassword" required placeholder="••••••••">
+                </div>
+                <button type="submit" class="btn-submit">Log In</button>
+            </form>
+            <div class="switch-link">
+                New to Journey? <a onclick="toggleForm('signup')">Create an account</a>
+            </div>
+        </div>
+
+        <!-- Signup Section -->
+        <div id="signup-section" style="display: none;">
+            <h2>Create an account</h2>
+            <form id="signupForm">
+                <div class="form-group">
+                    <label>Full Name</label>
+                    <input type="text" id="regName" required placeholder="John Doe">
+                </div>
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <input type="email" id="regEmail" required placeholder="you@example.com">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="regPassword" required placeholder="••••••••">
+                </div>
+                <button type="submit" class="btn-submit">Sign Up</button>
+            </form>
+            <div class="switch-link">
+                Already have an account? <a onclick="toggleForm('login')">Log In</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function toggleForm(type) {
+            const login = document.getElementById('login-section');
+            const signup = document.getElementById('signup-section');
+            if(type === 'signup') {
+                login.style.display = 'none';
+                signup.style.display = 'block';
+                signup.style.animation = 'fadeIn 0.5s ease';
+            } else {
+                signup.style.display = 'none';
+                login.style.display = 'block';
+                login.style.animation = 'fadeIn 0.5s ease';
+            }
+        }
+
+        // Handle Login
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value.trim();
+            const btn = e.target.querySelector('button');
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Logging in...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/v1/tourists/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    localStorage.setItem('tourist_info', JSON.stringify(data));
+                    window.location.href = '/dashboard';
+                } else {
+                    alert("Invalid credentials.");
+                    btn.innerHTML = 'Log In';
+                    btn.disabled = false;
+                }
+            } catch (err) {
+                alert("Server error.");
+                btn.innerHTML = 'Log In';
+                btn.disabled = false;
+            }
+        });
+
+        // Handle Signup
+        document.getElementById('signupForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = e.target.querySelector('button');
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
+            btn.disabled = true;
+
+            const payload = {
+                name: document.getElementById('regName').value.trim(),
+                email: document.getElementById('regEmail').value.trim(),
+                password: document.getElementById('regPassword').value.trim(),
+                contact: "Not Provided",
+                id_proof_number: "None",
+                is_tracking_enabled: true
+            };
+            try {
+                const res = await fetch('/api/v1/tourists/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    alert("Account created! Please log in.");
+                    toggleForm('login');
+                    document.getElementById('loginEmail').value = payload.email;
+                } else {
+                    alert("Error creating account.");
+                }
+            } catch (err) {
+                alert("Server error.");
+            } finally {
+                btn.innerHTML = 'Sign Up';
+                btn.disabled = false;
+            }
+        });
+
+        // Google Mock
+        document.getElementById('googleLoginBtn').addEventListener('click', async () => {
+            // For testing bypass, mock a user
+            const mockUser = {
+                name: "Guest User",
+                email: "guest@example.com",
+                digital_id: "T-GUEST-001",
+                blockchain_hash: "0x89ab...cdef",
+                blockchain_block: 1049285
+            };
+            localStorage.setItem('tourist_info', JSON.stringify(mockUser));
+            window.location.href = '/dashboard';
+        });
+    </script>
+</body>
+</html>

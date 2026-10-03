@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tourist Safety Portal — Smart Shield</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <style>
+        /* Base and Layout Styles */
+        body { margin: 0; padding: 0; }
+        .tourist-layout {
+            max-width: 1200px;
+            margin: 1.5rem auto;
+            padding: 0 1rem;
+            display: grid;
+            grid-template-columns: 420px 1fr;
+            gap: 1.5rem;
+            display: none; /* Hidden by default until login */
+        }
+        @media (max-width: 900px) {
+            .tourist-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        /* Login Screen Overlay */
+        #loginOverlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #0b1120;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            flex-direction: column;
+        }
+        .login-box {
+            background: #1e293b;
+            padding: 2.5rem;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.5);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+        .login-box h2 {
+            margin-bottom: 1.5rem;
+            color: white;
+            font-size: 1.5rem;
+        }
+        .login-box input {
+            width: 100%;
+            padding: 0.75rem;
+            margin-bottom: 1rem;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-color);
+            background: #0f172a;
+            color: white;
+            text-align: center;
+            font-family: monospace;
+            font-size: 1.1rem;
+        }
+        .login-box button {
+            width: 100%;
+            padding: 0.75rem;
+            margin-bottom: 1rem;
+            font-size: 1rem;
+        }
+        .login-box .register-link {
+            font-size: 0.85rem;
+            color: #cbd5e1;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        /* Rest of Styles */
+        .status-banner {
+
+            padding: 1rem 1.25rem;
+            border-radius: var(--radius-sm);
+            margin-bottom: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-weight: 600;
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: #34d399;
+            transition: all 0.3s ease;
+        }
+        .status-banner.danger {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: rgba(239, 68, 68, 0.5);
+            color: #f87171;
+            animation: pulse-border 1.5s infinite;
+        }
+        .status-banner.warning {
+            background: rgba(245, 158, 11, 0.2);
+            border-color: rgba(245, 158, 11, 0.5);
+            color: #fbbf24;
+        }
+        @keyframes pulse-border {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        .sim-btn-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Screen -->
+    <div id="loginOverlay">
+        <div class="login-box">
+            <h2><i class="fa-solid fa-passport"></i> Tourist Login</h2>
+            <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">Access the dashboard</p>
+            <form id="loginForm">
+                <input type="email" id="loginEmail" placeholder="Email" style="width: 100%; padding: 0.75rem; border-radius: var(--radius-sm); background: #1e293b; border: 1px solid var(--border-color); color: white; margin-bottom: 1rem;">
+                <input type="password" id="loginPassword" placeholder="Password" style="width: 100%; padding: 0.75rem; border-radius: var(--radius-sm); background: #1e293b; border: 1px solid var(--border-color); color: white; margin-bottom: 1rem;">
+                <button type="submit" class="btn btn-primary" style="margin-bottom: 0.5rem;"><i class="fa-solid fa-right-to-bracket"></i> Login</button>
+            </form>
+            <button id="btnGoogleLogin" class="btn btn-secondary" style="width: 100%; padding: 0.75rem; margin-bottom: 1rem;"><i class="fa-brands fa-google"></i> Login with Google</button>
+            <div class="register-link" id="btnOpenRegFromLogin">New user? Create your Digital ID here</div>
+        </div>
+    </div>
+
+
+    <!-- Navigation -->
+    <nav class="navbar">
+        <a href="/" class="brand">
+            <div class="brand-icon"><i class="fa-solid fa-shield-halved"></i></div>
+            <span>Smart Tourist Shield</span>
+        </a>
+        <div class="nav-links">
+            <a href="/" class="nav-link"><i class="fa-solid fa-house"></i> Home</a>
+            <a href="/tourist" class="nav-link active"><i class="fa-solid fa-person-walking"></i> Tourist Portal</a>
+            <a href="/authority" class="nav-link"><i class="fa-solid fa-tower-broadcast"></i> Authority Command Center</a>
+            <a href="/admin" class="nav-link"><i class="fa-solid fa-draw-polygon"></i> Geo-Fence Studio</a>
+            <a href="/verify" class="nav-link"><i class="fa-solid fa-qrcode"></i> ID Verifier</a>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="tourist-layout">
+        
+        <!-- Left Column: Controls, SOS, ID Card -->
+        <div class="tourist-sidebar">
+            
+            <!-- Safety Status Alert -->
+            <div id="statusBanner" class="status-banner">
+                <i class="fa-solid fa-circle-check"></i>
+                <span id="statusBannerText">Status: Location Secure (Inside Safe Perimeter)</span>
+            </div>
+
+            <!-- Emergency Active Confirmation Banner (Workflow Diagram 1) -->
+            <div id="sosEmergencyState" class="glass-panel" style="display: none; padding: 1.25rem; margin-bottom: 1.25rem; border: 2px solid #ef4444; background: rgba(239, 68, 68, 0.15);">
+                <div style="display: flex; align-items: center; gap: 0.5rem; color: #f87171; font-weight: 800; font-size: 1rem;">
+                    <i class="fa-solid fa-triangle-exclamation"></i> HELP IS ON THE WAY!
+                </div>
+                <p style="font-size: 0.8rem; color: #cbd5e1; margin: 0.4rem 0 0.8rem;">
+                    Distress beacon transmitted to Tactical Command Center. Responders have been alerted with your live coordinates.
+                </p>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button id="btnCancelSos" class="btn btn-secondary btn-sm" style="font-size: 0.78rem; flex: 1;">
+                        <i class="fa-solid fa-circle-check"></i> I Am Safe / Cancel SOS
+                    </button>
+                    <a href="tel:112" class="btn btn-danger btn-sm" style="font-size: 0.78rem; background: #ef4444; text-decoration: none;">
+                        <i class="fa-solid fa-phone"></i> Dial 112
+                    </a>
+                </div>
+            </div>
+
+            <!-- Tourist Information (Replaces Dropdown) -->
+            <div class="glass-panel" style="padding: 1.25rem; margin-bottom: 1.25rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                    <span style="font-weight: 600; font-size: 0.9rem; color: var(--text-secondary);">LOGGED IN AS</span>
+                    <button id="btnLogout" class="btn btn-secondary btn-sm"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+                </div>
+                <div style="padding: 0.6rem; border-radius: var(--radius-sm); background: #0b1120; border: 1px solid var(--border-color); color: white;">
+                    <strong id="displayTouristName">Loading...</strong>
+                </div>
+
+                <!-- Consent & Privacy Control (PRD 5.2) -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border-color); font-size: 0.8rem;">
+                    <span style="color: var(--text-muted);">Telemetry Consent:</span>
+                    <button id="btnConsentToggle" class="badge badge-low" style="cursor: pointer; border: 1px solid rgba(16,185,129,0.3);">
+                        <i class="fa-solid fa-tower-broadcast"></i> SHARING ACTIVE
+                    </button>
+                </div>
+            </div>
+
+            <!-- Emergency SOS Panic Section -->
+            <div class="glass-panel" style="padding: 1.5rem; text-align: center; margin-bottom: 1.25rem;">
+                <div style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em;">
+                    EMERGENCY RAPID DISPATCH
+                </div>
+                <div class="sos-button-wrapper">
+                    <button id="btnSos" class="btn-sos">
+                        <span>SOS</span>
+                        <span class="sos-subtext">PRESS FOR HELP</span>
+                    </button>
+                </div>
+                <p style="font-size: 0.8rem; color: var(--text-muted);">
+                    Instantly transmits your GPS beacon and cryptographic ID to emergency responders.
+                </p>
+            </div>
+
+            <!-- Blockchain Digital Tourist ID Card -->
+            <div class="digital-id-card" id="digitalIdCard">
+                <div class="blockchain-watermark">VERIFIED</div>
+                <div class="id-header">
+                    <div class="id-chip"></div>
+                    <div style="text-align: right;">
+                        <span class="badge badge-low"><i class="fa-solid fa-link"></i> POLYGON TESTNET</span>
+                        <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 2px;">BLOCK #<span id="idBlockNumber">1049281</span></div>
+                    </div>
+                </div>
+
+                <div class="id-body">
+                    <div>
+                        <div class="id-field">
+                            <div class="id-label">Tourist Name</div>
+                            <div class="id-val" id="idTouristName">Priya Sharma</div>
+                        </div>
+                        <div class="id-field">
+                            <div class="id-label">Digital Tourist ID</div>
+                            <div class="id-val-mono" id="idDigitalId">TID-2026-001-PRIYA</div>
+                        </div>
+                        <div class="id-field">
+                            <div class="id-label">Ledger Hash</div>
+                            <div class="id-val-mono" style="font-size: 0.7rem; word-break: break-all;" id="idLedgerHash">0x7f83b165...</div>
+                        </div>
+                    </div>
+                    <div class="id-qr">
+                        <img id="idQrImage" src="" alt="Digital ID QR Code">
+                    </div>
+                </div>
+
+                <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem;">
+                    <button id="btnDownloadPass" class="btn btn-secondary btn-sm" style="width: 100%;">
+                        <i class="fa-solid fa-download"></i> Save Digital Pass
+                    </button>
+                    <a id="btnVerifyLink" href="/verify" target="_blank" class="btn btn-secondary btn-sm" title="Verify on Blockchain" style="text-decoration: none; display: flex; align-items: center;">
+                        <i class="fa-solid fa-up-right-from-square"></i>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Simulation Tools -->
+            <div class="glass-panel" style="padding: 1.25rem; margin-top: 1.25rem;">
+                <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">
+                    🧪 Live Walk Simulation Tools
+                </div>
+                <p style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 4px;">
+                    Test real-time geo-fence intrusion without physical travel:
+                </p>
+                <div class="sim-btn-group">
+                    <button id="btnSimSafe" class="btn btn-secondary btn-sm" style="color: #34d399;">
+                        <i class="fa-solid fa-tree"></i> Move to Safe
+                    </button>
+                    <button id="btnSimRestricted" class="btn btn-secondary btn-sm" style="color: #fbbf24;">
+                        <i class="fa-solid fa-triangle-exclamation"></i> Breach Buffer
+                    </button>
+                </div>
+                <div class="sim-btn-group" style="margin-top: 0.5rem;">
+                    <button id="btnSimHighRisk" class="btn btn-secondary btn-sm" style="color: #f87171; grid-column: span 2;">
+                        <i class="fa-solid fa-skull-crossbones"></i> Enter High-Risk Danger Zone
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right Column: Interactive Map -->
+        <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+            <!-- Trip Planner Panel -->
+            <div class="glass-panel" style="padding: 1.25rem; display: flex; flex-direction: column;">
+                <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem;"><i class="fa-solid fa-route"></i> AI Trip Planner</h3>
+                <div style="display: flex; gap: 0.5rem;">
+                    <input type="text" id="tripDestination" placeholder="Where do you want to go?" style="flex:1; padding: 0.65rem; border-radius: var(--radius-sm); background: #1e293b; border: 1px solid var(--border-color); color: white;">
+                    <button id="btnPlanTrip" class="btn btn-primary"><i class="fa-solid fa-magic"></i> Plan Trip</button>
+                </div>
+                <div id="tripDetails" style="display:none; margin-top: 1rem; font-size: 0.85rem; color: #cbd5e1; background: rgba(0,0,0,0.2); padding: 1rem; border-radius: var(--radius-sm);">
+                    <!-- Trip details injected here -->
+                </div>
+            </div>
+
+            <!-- Map Panel -->
+            <div class="glass-panel" style="padding: 1.25rem; display: flex; flex-direction: column; flex: 1;">
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <div>
+                    <h2 style="font-size: 1.2rem; font-weight: 700;">Live Safety Radar</h2>
+                    <p style="font-size: 0.85rem; color: var(--text-muted);">Real-time GPS telemetry & designated security perimeters</p>
+                </div>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                    <button id="btnLiveGpsToggle" class="btn btn-primary btn-sm">
+                        <i class="fa-solid fa-location-crosshairs"></i> Use Device GPS
+                    </button>
+                </div>
+            </div>
+            <div id="map" style="flex: 1; min-height: 550px;"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Registration Modal -->
+    <div id="regModal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 style="margin-bottom: 1rem; font-size: 1.25rem;"><i class="fa-solid fa-passport"></i> Issue Digital Tourist Pass</h3>
+            <form id="regForm">
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.3rem;">Full Name</label>
+                    <input type="text" id="regName" required style="width: 100%; padding: 0.65rem; border-radius: var(--radius-sm); background: #1e293b; border: 1px solid var(--border-color); color: white;">
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.3rem;">Contact Phone</label>
+                    <input type="text" id="regContact" required style="width: 100%; padding: 0.65rem; border-radius: var(--radius-sm); background: #1e293b; border: 1px solid var(--border-color); color: white;">
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.3rem;">Email</label>
+                    <input type="email" id="regEmail" required style="width: 100%; padding: 0.65rem; border-radius: var(--radius-sm); background: #1e293b; border: 1px solid var(--border-color); color: white;">
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.3rem;">Password</label>
+                    <input type="password" id="regPassword" required style="width: 100%; padding: 0.65rem; border-radius: var(--radius-sm); background: #1e293b; border: 1px solid var(--border-color); color: white;">
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.3rem;">Passport / National ID Proof</label>
+                    <input type="text" id="regIdProof" placeholder="e.g. PASS-981240" style="width: 100%; padding: 0.65rem; border-radius: var(--radius-sm); background: #1e293b; border: 1px solid var(--border-color); color: white;">
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
+                    <button type="button" id="btnCancelReg" class="btn btn-secondary">Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-cube"></i> Anchor to Blockchain</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Notifications Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Audio Element for Emergency Sirens -->
+    <audio id="sirenAudio" preload="auto">
+        <source src="https://assets.mixkit.co/active_storage/sfx/2874/2874-preview.mp3" type="audio/mpeg">
+    </audio>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="/static/js/tourist.js"></script>
+</body>
+</html>

@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Journey Planning — SafeTrip AI</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root {
+            --primary: #1F9D72;
+            --primary-glow: rgba(31,157,114,0.3);
+            --bg-dark: #080810;
+            --glass-bg: rgba(255,255,255,0.04);
+            --glass-border: rgba(255,255,255,0.08);
+            --text-muted: rgba(255,255,255,0.5);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Outfit', sans-serif; }
+        body { background: var(--bg-dark); color: #fff; overflow: hidden; height: 100vh; width: 100vw; }
+
+        .ambient-bg { position: fixed; inset: 0; z-index: 0; overflow: hidden; background: #080810; }
+        .orb { position: absolute; border-radius: 50%; filter: blur(100px); animation: floatOrb 18s infinite ease-in-out alternate; }
+        .orb-1 { width: 500px; height: 500px; background: rgba(31,157,114,0.18); top: -150px; right: -150px; }
+        .orb-2 { width: 350px; height: 350px; background: rgba(56,189,248,0.08); bottom: -100px; left: -100px; animation-delay: -6s; }
+        .orb-3 { width: 250px; height: 250px; background: rgba(168,85,247,0.35); top: 40%; left: 30%; animation-delay: -12s; }
+        @keyframes floatOrb { 0% { transform: translate(0,0) scale(1); } 100% { transform: translate(-40px,60px) scale(1.12); } }
+
+        .navbar { position: fixed; top: 0; left: 0; width: 100%; z-index: 500; padding: 1.2rem 3rem; display: flex; justify-content: space-between; align-items: center; background: rgba(8,8,16,0.6); backdrop-filter: blur(20px); border-bottom: 1px solid var(--glass-border); }
+        .brand { font-size: 1.5rem; font-weight: 800; letter-spacing: 3px; color: #fff; text-decoration: none; }
+        .brand span { color: var(--primary); }
+        .nav-right { display: flex; align-items: center; gap: 1.2rem; }
+        .nav-right i { font-size: 1.2rem; color: rgba(255,255,255,0.7); cursor: pointer; transition: 0.3s; }
+        .nav-right i:hover { color: var(--primary); }
+        .nav-user { font-weight: 600; font-size: 0.95rem; color: rgba(255,255,255,0.8); }
+
+        /* QUIZ */
+        .quiz-scene { position: fixed; inset: 0; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.7s ease, transform 0.7s ease; }
+        .quiz-scene.exiting { opacity: 0; transform: translateY(-40px); pointer-events: none; }
+
+        .progress-bar-wrap { position: absolute; top: 80px; left: 50%; transform: translateX(-50%); width: 360px; max-width: 90vw; }
+        .progress-track { width: 100%; height: 3px; background: rgba(255,255,255,0.08); border-radius: 10px; overflow: hidden; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, var(--primary), #38bdf8); border-radius: 10px; transition: width 0.6s cubic-bezier(0.16,1,0.3,1); }
+        .progress-text { display: flex; justify-content: space-between; margin-top: 8px; font-size: 0.78rem; color: var(--text-muted); }
+
+        .quiz-card { width: 100%; max-width: 580px; padding: 0 1.5rem; display: flex; flex-direction: column; align-items: center; }
+        .card-inner { width: 100%; background: rgba(255,255,255,0.035); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px); border: 1px solid rgba(255,255,255,0.09); border-radius: 28px; padding: 2.8rem 2.5rem 2.5rem; box-shadow: 0 30px 80px rgba(0,0,0,0.5); animation: cardIn 0.55s cubic-bezier(0.16,1,0.3,1) both; }
+        @keyframes cardIn { from { opacity: 0; transform: translateY(36px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        .card-inner.card-out { animation: cardOut 0.4s cubic-bezier(0.4,0,1,1) both; }
+        @keyframes cardOut { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(-28px) scale(0.97); } }
+
+        .step-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 0.75rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--primary); background: rgba(31,157,114,0.1); border: 1px solid rgba(31,157,114,0.25); padding: 5px 14px; border-radius: 20px; margin-bottom: 1.5rem; }
+        .quiz-q { font-size: 1.6rem; font-weight: 600; line-height: 1.35; margin-bottom: 0.5rem; }
+        .quiz-sub { font-size: 0.92rem; color: var(--text-muted); margin-bottom: 1.8rem; }
+
+        .opts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 2rem; }
+        .opt { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 18px; padding: 1.1rem 1rem; display: flex; flex-direction: column; align-items: center; gap: 10px; cursor: pointer; transition: all 0.25s ease; font-size: 1rem; font-weight: 500; color: #fff; text-align: center; }
+        .opt i { font-size: 1.6rem; color: rgba(255,255,255,0.4); transition: 0.25s; }
+        .opt:hover { background: rgba(255,255,255,0.07); transform: translateY(-3px); border-color: rgba(255,255,255,0.15); }
+        .opt.selected { background: rgba(31,157,114,0.14); border-color: var(--primary); box-shadow: 0 0 0 3px rgba(31,157,114,0.12), 0 8px 24px rgba(31,157,114,0.15); }
+        .opt.selected i { color: var(--primary); }
+
+        .next-btn { width: 100%; padding: 1rem; border-radius: 50px; background: linear-gradient(135deg, var(--primary), #16a085); color: #fff; font-size: 1.05rem; font-weight: 700; border: none; cursor: pointer; transition: 0.3s; display: flex; align-items: center; justify-content: center; gap: 10px; opacity: 0.35; pointer-events: none; box-shadow: 0 6px 20px rgba(31,157,114,0.3); }
+        .next-btn.active { opacity: 1; pointer-events: auto; }
+        .next-btn.active:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(31,157,114,0.45); }
+
+        /* TRANSITION */
+        .transition-screen { position: fixed; inset: 0; z-index: 200; display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.5s; }
+        .transition-screen.show { opacity: 1; }
+        .t-ring { width: 80px; height: 80px; border-radius: 50%; border: 3px solid transparent; border-top-color: var(--primary); border-right-color: rgba(31,157,114,0.3); animation: spin 1s linear infinite; margin-bottom: 1.5rem; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .t-label { font-size: 1.1rem; color: var(--text-muted); text-align: center; }
+        .t-label strong { color: #fff; display: block; font-size: 1.5rem; font-weight: 700; margin-bottom: 4px; }
+
+        /* DASHBOARD */
+        .dash-wrap { position: fixed; inset: 0; z-index: 50; opacity: 0; pointer-events: none; transition: opacity 0.8s ease; display: flex; flex-direction: column; padding-top: 70px; }
+        .dash-wrap.show { opacity: 1; pointer-events: auto; }
+
+        .map-layout { flex: 1; display: flex; gap: 18px; padding: 18px 24px 18px 24px; height: calc(100vh - 70px); overflow: hidden; }
+
+        .sidebar { width: 310px; flex-shrink: 0; background: rgba(255,255,255,0.025); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid rgba(255,255,255,0.07); border-radius: 22px; padding: 1.4rem; display: flex; flex-direction: column; gap: 1rem; overflow-y: auto; }
+        .sidebar::-webkit-scrollbar { width: 4px; }
+        .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+        .sidebar-header h2 { font-size: 1.25rem; font-weight: 700; }
+        .sidebar-header p { font-size: 0.82rem; color: var(--text-muted); margin-top: 3px; }
+        .divider { height: 1px; background: rgba(255,255,255,0.35); }
+
+        .info-card { background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.05); border-radius: 14px; padding: 1rem 1.1rem; }
+        .info-card .label { font-size: 0.7rem; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; }
+        .info-card .value { font-size: 1rem; font-weight: 600; }
+        .info-card .value .highlight { color: var(--primary); }
+
+        .status-pill { display: inline-flex; align-items: center; gap: 7px; font-size: 0.8rem; font-weight: 700; padding: 5px 12px; border-radius: 20px; }
+        .status-pill.safe { background: rgba(31,157,114,0.12); border: 1px solid rgba(31,157,114,0.3); color: var(--primary); }
+        .status-pill.tracking { background: rgba(56,189,248,0.1); border: 1px solid rgba(56,189,248,0.25); color: #38bdf8; }
+
+        .timeline { padding-left: 22px; position: relative; }
+        .timeline::before { content: ''; position: absolute; left: 5px; top: 6px; bottom: 6px; width: 2px; background: rgba(255,255,255,0.07); border-radius: 2px; }
+        .t-item { position: relative; margin-bottom: 14px; }
+        .t-item::before { content: ''; position: absolute; left: -21px; top: 5px; width: 9px; height: 9px; border-radius: 50%; background: #333; border: 2px solid #0d0d1a; }
+        .t-item.done::before { background: var(--primary); box-shadow: 0 0 8px var(--primary); }
+        .t-item.current::before { background: #38bdf8; box-shadow: 0 0 8px #38bdf8; animation: tPulse 1.5s infinite; }
+        @keyframes tPulse { 0%, 100% { box-shadow: 0 0 4px #38bdf8; } 50% { box-shadow: 0 0 14px #38bdf8; } }
+        .t-title { font-weight: 600; font-size: 0.92rem; }
+        .t-sub { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+
+        .sos-btn { width: 100%; padding: 0.9rem; background: linear-gradient(135deg, rgba(220,53,69,0.85), rgba(180,30,50,0.9)); border: 1px solid rgba(220,53,69,0.5); color: #fff; font-size: 1rem; font-weight: 800; border-radius: 14px; cursor: pointer; transition: 0.3s; display: flex; align-items: center; justify-content: center; gap: 10px; letter-spacing: 1px; box-shadow: 0 6px 20px rgba(220,53,69,0.25); margin-top: auto; }
+        .sos-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(220,53,69,0.45); }
+
+        .map-wrapper { flex: 1; border-radius: 22px; overflow: hidden; border: 1px solid rgba(255,255,255,0.07); position: relative; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+        #map { width: 100%; height: 100%; }
+
+        .map-hud { position: absolute; top: 16px; right: 16px; z-index: 1000; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+        .hud-card { background: rgba(8,8,16,0.82); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 10px 14px; display: flex; align-items: center; gap: 12px; }
+        .gps-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--primary); box-shadow: 0 0 0 0 rgba(31,157,114,0.7); animation: gpsPulse 1.8s infinite; flex-shrink: 0; }
+        @keyframes gpsPulse { 0% { box-shadow: 0 0 0 0 rgba(31,157,114,0.7); } 70% { box-shadow: 0 0 0 10px rgba(31,157,114,0); } 100% { box-shadow: 0 0 0 0 rgba(31,157,114,0); } }
+        .hud-label { font-size: 0.82rem; font-weight: 600; }
+        .hud-sub { font-size: 0.72rem; color: var(--text-muted); }
+        .speed-card { background: rgba(8,8,16,0.82); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 10px 14px; text-align: center; }
+        .speed-val { font-size: 1.8rem; font-weight: 800; color: #38bdf8; line-height: 1; }
+        .speed-unit { font-size: 0.7rem; color: var(--text-muted); margin-top: 2px; }
+
+        .coords-pill { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 1000; background: rgba(8,8,16,0.82); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); border-radius: 30px; padding: 8px 18px; font-size: 0.78rem; color: var(--text-muted); font-family: 'Courier New', monospace; pointer-events: none; white-space: nowrap; }
+        .coords-pill span { color: #fff; }
+
+        .stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .stat-mini { background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 0.8rem; text-align: center; }
+        .stat-mini .sval { font-size: 1.2rem; font-weight: 800; color: var(--primary); }
+        .stat-mini .slabel { font-size: 0.7rem; color: var(--text-muted); margin-top: 3px; }
+
+        .weather-row { display: flex; align-items: center; gap: 10px; }
+        .weather-icon { font-size: 2rem; }
+        .weather-info .temp { font-size: 1.5rem; font-weight: 800; }
+        .weather-info .cond { font-size: 0.82rem; color: var(--text-muted); }
+
+        .sos-overlay { position: fixed; inset: 0; z-index: 9999; background: rgba(220,53,69,0.15); pointer-events: none; opacity: 0; transition: opacity 0.3s; }
+        .sos-overlay.active { animation: sosBlink 0.5s 3; }
+        @keyframes sosBlink { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
+
+        .live-marker { width: 18px; height: 18px; background: var(--primary); border-radius: 50%; border: 3px solid #fff; box-shadow: 0 0 0 6px rgba(31,157,114,0.25), 0 0 20px rgba(31,157,114,0.6); }
+    .leaflet-tile-pane { filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); }
+</style>
+</head>
+<body>
+    <div class="ambient-bg">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+    </div>
+
+    
+    <div class="sos-overlay" id="sosOverlay"></div>
+
+    <!-- SOS MODAL -->
+    <div class="sos-modal-overlay" id="sosModalOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999; justify-content:center; align-items:center; backdrop-filter:blur(8px);">
+        <div style="background:linear-gradient(to bottom, rgba(15,23,42,0.95), rgba(0,0,0,0.95)); border: 1px solid #ef4444; border-radius:24px; padding:35px 25px; text-align:center; max-width:420px; width:90%; box-shadow: 0 20px 60px rgba(239,68,68,0.3);">
+            <div style="width: 80px; height: 80px; background: rgba(239,68,68,0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px auto; border: 2px solid rgba(239,68,68,0.3);">
+                <i class="fa-solid fa-triangle-exclamation fa-fade" style="font-size:2.5rem; color:#ef4444;"></i>
+            </div>
+            <h2 style="color:white; margin:0 0 12px 0; font-size:1.8rem; font-weight:800; letter-spacing:1px;">EMERGENCY SOS</h2>
+            <p style="color:#94a3b8; margin-bottom:30px; font-size:0.95rem; line-height:1.5;">Select the required service. Your live GPS coordinates will be instantly transmitted to authorities and your emergency contact.</p>
+            
+            <div style="display:flex; flex-direction:column; gap:14px;">
+                <button onclick="dispatchSOS('Police', '100')" style="background:rgba(30,58,138,0.8); border:1px solid #3b82f6; color:white; padding:16px; border-radius:14px; font-size:1.1rem; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:12px; transition:all 0.2s;"><i class="fa-solid fa-shield-halved" style="font-size:1.3rem;"></i> Police (100)</button>
+                <button onclick="dispatchSOS('Ambulance', '108')" style="background:rgba(6,78,59,0.8); border:1px solid #10b981; color:white; padding:16px; border-radius:14px; font-size:1.1rem; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:12px; transition:all 0.2s;"><i class="fa-solid fa-truck-medical" style="font-size:1.3rem;"></i> Ambulance (108)</button>
+                <button onclick="dispatchSOS('Fire Brigade', '101')" style="background:rgba(127,29,29,0.8); border:1px solid #ef4444; color:white; padding:16px; border-radius:14px; font-size:1.1rem; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:12px; transition:all 0.2s;"><i class="fa-solid fa-fire-extinguisher" style="font-size:1.3rem;"></i> Fire Brigade (101)</button>
+                <button onclick="closeSOS()" style="background:transparent; border:1px solid rgba(255,255,255,0.1); color:#94a3b8; padding:14px; border-radius:14px; font-size:1rem; cursor:pointer; margin-top:8px; font-weight:600;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+
+    <nav class="navbar">
+        <a href="/dashboard" class="brand">JOURNEY<span>.</span></a>
+        <div class="nav-right">
+            <i class="fa-regular fa-bell"></i>
+            <span class="nav-user" id="navName">Loading...</span>
+            <i class="fa-regular fa-circle-user" style="font-size:1.4rem;"></i>
+        </div>
+    </nav>
+
+    <!-- QUESTIONNAIRE -->
+    <div class="quiz-scene" id="quizScene">
+        <div class="progress-bar-wrap">
+            <div class="progress-track">
+                <div class="progress-fill" id="progressFill" style="width:25%"></div>
+            </div>
+            <div class="progress-text">
+                <span id="stepLabel">Step 1 of 4</span>
+                <span id="stepPct">25%</span>
+            </div>
+        </div>
+
+        <div class="quiz-card">
+            <div class="card-inner" id="cardInner">
+
+                <!-- Q1 -->
+                <div id="q1" class="q-panel">
+                    <div class="step-chip"><i class="fa-solid fa-compass"></i> Step 1 of 4</div>
+                    <div class="quiz-q">What is the purpose of your trip to <span id="destName" style="color:var(--primary);">...</span>?</div>
+                    <div class="quiz-sub">We will tailor your safety alerts accordingly.</div>
+                    <div class="opts">
+                        <div class="opt" onclick="pick(1,this)"><i class="fa-solid fa-umbrella-beach"></i>Leisure &amp; Vacation</div>
+                        <div class="opt" onclick="pick(1,this)"><i class="fa-solid fa-briefcase"></i>Business Trip</div>
+                        <div class="opt" onclick="pick(1,this)"><i class="fa-solid fa-mountain-sun"></i>Adventure / Trek</div>
+                        <div class="opt" onclick="pick(1,this)"><i class="fa-solid fa-people-group"></i>Visit Family</div>
+                    </div>
+                    <button class="next-btn" id="btn1" onclick="goNext(1)">Continue <i class="fa-solid fa-arrow-right"></i></button>
+                </div>
+
+                <!-- Q2 -->
+                <div id="q2" class="q-panel" style="display:none;">
+                    <div class="step-chip"><i class="fa-solid fa-users"></i> Step 2 of 4</div>
+                    <div class="quiz-q">Who are you traveling with?</div>
+                    <div class="quiz-sub">Helps us send the right group safety tips.</div>
+                    <div class="opts">
+                        <div class="opt" onclick="pick(2,this)"><i class="fa-solid fa-person-hiking"></i>Solo</div>
+                        <div class="opt" onclick="pick(2,this)"><i class="fa-solid fa-heart"></i>Partner / Couple</div>
+                        <div class="opt" onclick="pick(2,this)"><i class="fa-solid fa-children"></i>Family with Kids</div>
+                        <div class="opt" onclick="pick(2,this)"><i class="fa-solid fa-users"></i>Friend Group</div>
+                    </div>
+                    <button class="next-btn" id="btn2" onclick="goNext(2)">Continue <i class="fa-solid fa-arrow-right"></i></button>
+                </div>
+
+                <!-- Q3 -->
+                <div id="q3" class="q-panel" style="display:none;">
+                    <div class="step-chip"><i class="fa-solid fa-suitcase-rolling"></i> Step 3 of 4</div>
+                    <div class="quiz-q">How long is your trip?</div>
+                    <div class="quiz-sub">We will set up check-in reminders for you.</div>
+                    <div class="opts">
+                        <div class="opt" onclick="pick(3,this)"><i class="fa-solid fa-calendar-day"></i>Day Trip</div>
+                        <div class="opt" onclick="pick(3,this)"><i class="fa-solid fa-calendar-week"></i>Weekend (2-3 days)</div>
+                        <div class="opt" onclick="pick(3,this)"><i class="fa-solid fa-calendar"></i>1 Week</div>
+                        <div class="opt" onclick="pick(3,this)"><i class="fa-solid fa-calendar-check"></i>More than a Week</div>
+                    </div>
+                    <button class="next-btn" id="btn3" onclick="goNext(3)">Continue <i class="fa-solid fa-arrow-right"></i></button>
+                </div>
+
+                <!-- Q4 -->
+                <div id="q4" class="q-panel" style="display:none;">
+                    <div class="step-chip"><i class="fa-solid fa-shield-heart"></i> Step 4 of 4</div>
+                    <div class="quiz-q">What is your comfort level with risk?</div>
+                    <div class="quiz-sub">Sets your alert sensitivity threshold.</div>
+                    <div class="opts">
+                        <div class="opt" onclick="pick(4,this)"><i class="fa-solid fa-face-smile"></i>Very Cautious</div>
+                        <div class="opt" onclick="pick(4,this)"><i class="fa-solid fa-person-walking"></i>Moderate</div>
+                        <div class="opt" onclick="pick(4,this)"><i class="fa-solid fa-person-running"></i>Bold Explorer</div>
+                        <div class="opt" onclick="pick(4,this)"><i class="fa-solid fa-skull-crossbones"></i>Adrenaline Seeker</div>
+                    </div>
+                    <button class="next-btn" id="btn4" onclick="launchDash()">Start Journey <i class="fa-solid fa-plane-departure"></i></button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- TRANSITION -->
+    <div class="transition-screen" id="transScreen">
+        <div class="t-ring"></div>
+        <div class="t-label">
+            <strong>Activating Journey Mode</strong>
+            Locking GPS and Preparing Dashboard...
+        </div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div class="dash-wrap" id="dashWrap">
+        <div class="map-layout">
+            <div class="sidebar">
+                <div class="sidebar-header">
+                    <h2>Active Journey</h2>
+                    <p>Protected by SafeTrip AI</p>
+                </div>
+                <div class="divider"></div>
+                <div class="info-card">
+                    <div class="label"><i class="fa-solid fa-location-dot" style="color:var(--primary);margin-right:4px;"></i> Destination</div>
+                    <div class="value" id="dashDest">Loading...</div>
+                </div>
+                <div class="info-card">
+                    <div class="label"><i class="fa-solid fa-phone" style="color:var(--primary);margin-right:4px;"></i> Emergency Contact</div>
+                    <div class="value" id="dashEm">Loading...</div>
+                </div>
+                <div class="info-card">
+                    <div class="label"><i class="fa-solid fa-shield-check" style="color:var(--primary);margin-right:4px;"></i> Safety Status</div>
+                    <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
+                        <span class="status-pill safe"><i class="fa-solid fa-circle-check"></i> Area Safe</span>
+                        <span class="status-pill tracking"><i class="fa-solid fa-satellite-dish"></i> Tracking</span>
+                    </div>
+                </div>
+                <div class="info-card">
+                    <div class="label"><i class="fa-solid fa-cloud-sun" style="color:var(--primary);margin-right:4px;"></i> Local Weather</div>
+                    <div class="weather-row" style="margin-top:8px;">
+                        <div class="weather-icon" id="weatherIcon">Sunny</div>
+                        <div class="weather-info">
+                            <div class="temp" id="weatherTemp">28 C</div>
+                            <div class="cond" id="weatherCond">Partly Cloudy</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="stat-row">
+                    <div class="stat-mini">
+                        <div class="sval" id="statDist">0 m</div>
+                        <div class="slabel">Distance Covered</div>
+                    </div>
+                    <div class="stat-mini">
+                        <div class="sval" id="statETA">--:--</div>
+                        <div class="slabel">Est. Arrival</div>
+                    </div>
+                </div>
+                <div class="info-card" style="flex:1;">
+                    <div class="label">Journey Timeline</div>
+                    <div class="timeline" style="margin-top:12px;">
+                        <div class="t-item done"><div class="t-title">Trip Confirmed</div><div class="t-sub">Emergency contact saved</div></div>
+                        <div class="t-item done"><div class="t-title">Setup Complete</div><div class="t-sub">Preferences locked in</div></div>
+                        <div class="t-item current"><div class="t-title">Journey Active</div><div class="t-sub" id="timelineSub">GPS signal locked</div></div>
+                        <div class="t-item"><div class="t-title">Arrival</div><div class="t-sub" id="timelineETA">Tracking in progress...</div></div>
+                    </div>
+                </div>
+                <button class="sos-btn" id="sosBtn" onclick="triggerSOS()">
+                    <i class="fa-solid fa-bell-exclamation"></i> SOS ALERT
+                </button>
+            </div>
+
+            <div class="map-wrapper">
+                <div class="map-hud">
+                    <div class="hud-card">
+                        <div class="gps-dot"></div>
+                        <div>
+                            <div class="hud-label" id="hudLabel">Acquiring GPS...</div>
+                            <div class="hud-sub" id="hudAcc">Requesting permission</div>
+                        </div>
+                    </div>
+                    <div class="speed-card">
+                        <div class="speed-val" id="speedVal">0</div>
+                        <div class="speed-unit">km/h</div>
+                    </div>
+                </div>
+                <div style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); z-index: 1000; width: 80%; max-width: 500px; display: flex; gap: 10px;">
+                    <input type="text" id="planningSearchInput" placeholder="Find area or destination..." style="flex:1; padding: 10px 16px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(7,8,15,0.85); backdrop-filter: blur(10px); color: white; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" />
+                    <button onclick="searchPlanningMap()" style="padding: 10px 20px; border-radius: 8px; border: none; background: #3b82f6; color: white; cursor: pointer; font-weight: 600; box-shadow: 0 10px 30px rgba(59,130,246,0.4);">Search</button>
+                </div>
+                <div id="map"></div>
+                <div class="coords-pill"><span id="coordsText">Acquiring coordinates...</span></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
+async function searchPlanningMap() {
+    var query = document.getElementById('planningSearchInput').value.trim();
+    if(!query) return;
+    
+    var btn = document.querySelector('button[onclick="searchPlanningMap()"]');
+    var oldText = btn.innerHTML;
+    btn.innerHTML = 'Searching...';
+    
+    try {
+        var res = await fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(query));
+        var data = await res.json();
+        
+        btn.innerHTML = oldText;
+        
+        if(data && data.length > 0) {
+            var sLat = parseFloat(data[0].lat);
+            var sLng = parseFloat(data[0].lon);
+            map.flyTo([sLat, sLng], 13, {animate: true, duration: 1.5});
+            
+            var loc = query.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+            
+            if(window.searchZones) {
+                window.searchZones.forEach(z => map.removeLayer(z));
+            }
+            window.searchZones = [];
+            
+            var z1 = L.circle([sLat + 0.005, sLng + 0.005], {radius: 400, weight: 3, color: '#22c55e', fill: true, fillColor: 'rgba(34,197,94,0.35)'}).addTo(map).bindPopup('<b style="color:#22c55e">&#128994; Safe Zone ('+getRnd(safeSub)+', '+loc+')</b><br>Low Risk.<br><i>Reason: '+getRnd(safeR)+'</i>');
+            var z2 = L.circle([sLat - 0.008, sLng + 0.015], {radius: 350, weight: 3, color: '#eab308', fill: true, fillColor: 'rgba(234,179,8,0.35)'}).addTo(map).bindPopup('<b style="color:#eab308">&#128993; Connectivity Alert ('+getRnd(cautionSub)+', '+loc+')</b><br>Weak Signal.<br><i>Reason: Network drops.</i>');
+            var z3 = L.circle([sLat - 0.012, sLng - 0.005], {radius: 500, weight: 3, color: '#f97316', fill: true, fillColor: 'rgba(249,115,22,0.35)'}).addTo(map).bindPopup('<b style="color:#f97316">&#128992; Caution Area ('+getRnd(cautionSub)+', '+loc+')</b><br>Medium Risk.<br><i>Reason: '+getRnd(cautionR)+'</i>');
+            var z4 = L.circle([sLat + 0.018, sLng - 0.008], {radius: 300, weight: 3, color: '#ef4444', fill: true, fillColor: 'rgba(239,68,68,0.35)'}).addTo(map).bindPopup('<b style="color:#ef4444">&#128308; Danger Zone ('+getRnd(dangerSub)+', '+loc+')</b><br>High Risk.<br><i>Reason: '+getRnd(dangerR)+'</i>');
+            var z5 = L.circle([sLat + 0.01, sLng + 0.02], {radius: 250, weight: 3, color: '#991b1b', fill: true, fillColor: 'rgba(153,27,27,0.35)'}).addTo(map).bindPopup('<b style="color:#991b1b">&#128308; Critical Zone ('+getRnd(dangerSub)+', '+loc+')</b><br>Critical Risk.<br><i>Reason: '+getRnd(dangerR)+'</i>');
+            
+            window.searchZones.push(z1, z2, z3, z4, z5);
+            
+            
+            if(window.searchMarker) map.removeLayer(window.searchMarker);
+            window.searchMarker = L.marker([sLat, sLng]).addTo(map).bindPopup('<b style="font-size:16px;">'+loc+'</b><br>Searched Location').openPopup();
+
+            // Fetch Real-time Weather from Open-Meteo API for SEARCHED location
+            try {
+                let wRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${sLat}&longitude=${sLng}&current_weather=true`);
+                let wData = await wRes.json();
+                if(wData && wData.current_weather) {
+                    let temp = Math.round(wData.current_weather.temperature);
+                    let wCode = wData.current_weather.weathercode;
+                    document.getElementById('weatherTemp').textContent = temp + ' C';
+                    
+                    let condStr = 'Clear';
+                    let iconStr = 'Sunny';
+                    if(wCode >= 1 && wCode <= 3) { condStr = 'Partly Cloudy'; iconStr = 'Cloudy'; }
+                    else if(wCode >= 51 && wCode <= 67) { condStr = 'Rainy'; iconStr = 'Rain'; }
+                    else if(wCode >= 71) { condStr = 'Snow'; iconStr = 'Snow'; }
+                    else if(wCode >= 95) { condStr = 'Thunderstorm'; iconStr = 'Storm'; }
+                    
+                    document.getElementById('weatherCond').textContent = condStr;
+                    document.getElementById('weatherIcon').textContent = iconStr;
+                }
+            } catch(we) { console.log('Weather fetch failed'); }
+
+
+        } else {
+            alert("Location not found! Try adding city or country name.");
+        }
+    } catch(e) {
+        btn.innerHTML = oldText;
+        console.error(e);
+        alert("Error fetching location.");
+    }
+}
+
+</script>
+    <script>
+        // DYNAMIC ZONE ARRAYS
+        const safeSub = ['Central Plaza', 'Tourist Info Center', 'Main Station', 'City Square'];
+        const safeR = ['Normal crowds, active police patrol.', 'Well lit, CCTV monitored area.', 'High security presence.', 'Tourists frequent this area safely.'];
+        
+        const cautionSub = ['Outskirts', 'Local Market', 'Old Town', 'Transport Hub'];
+        const cautionR = ['High pickpocketing reports.', 'Network drops frequently.', 'Crowded, keep bags close.', 'Minor scams reported recently.'];
+        
+        const dangerSub = ['Industrial Park', 'Deserted Alley', 'Abandoned Factory', 'Forest Trail'];
+        const dangerR = ['Criminal activities reported.', 'Isolated spot. DO NOT ENTER.', 'No police patrol, high crime rate.', 'Unsafe after dark.'];
+
+        function getRnd(arr) { return arr[Math.floor(Math.random()*arr.length)]; }
+        const dest    = localStorage.getItem('trip_dest')  || 'Your Destination';
+        const emName  = localStorage.getItem('em_name')    || 'Not Set';
+        const emPhone = localStorage.getItem('em_phone')   || 'N/A';
+        const tourist = JSON.parse(localStorage.getItem('tourist_info') || '{}');
+
+        document.getElementById('navName').textContent  = tourist.name || 'Traveler';
+        document.getElementById('destName').textContent = dest;
+        document.getElementById('dashDest').textContent = dest;
+        document.getElementById('dashEm').innerHTML = '<span class="highlight">' + emName + '</span> - ' + emPhone;
+
+        const etaHours = Math.floor(Math.random() * 4) + 2;
+        const etaDate  = new Date(); etaDate.setHours(etaDate.getHours() + etaHours);
+        const etaStr   = etaDate.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+        document.getElementById('statETA').textContent     = etaStr;
+        document.getElementById('timelineETA').textContent = 'ETA: ' + etaStr;
+
+        const weathers = [
+            {icon:'Sunny', temp:'32 C', cond:'Clear Sky'},
+            {icon:'Cloudy', temp:'28 C', cond:'Partly Cloudy'},
+            {icon:'Rainy', temp:'24 C', cond:'Light Showers'},
+            {icon:'Sunny', temp:'30 C', cond:'Mostly Sunny'},
+        ];
+        const w = weathers[Math.floor(Math.random() * weathers.length)];
+        document.getElementById('weatherIcon').textContent = w.icon;
+        document.getElementById('weatherTemp').textContent = w.temp;
+        document.getElementById('weatherCond').textContent = w.cond;
+
+        const answers = {};
+
+        function pick(step, el) {
+            document.getElementById('q' + step).querySelectorAll('.opt').forEach(function(o){ o.classList.remove('selected'); });
+            el.classList.add('selected');
+            answers['q' + step] = el.textContent.trim();
+            document.getElementById('btn' + step).classList.add('active');
+        }
+
+        function updateProgress(step) {
+            var pct = Math.round((step / 4) * 100);
+            document.getElementById('progressFill').style.width = pct + '%';
+            document.getElementById('stepLabel').textContent = 'Step ' + step + ' of 4';
+            document.getElementById('stepPct').textContent   = pct + '%';
+        }
+
+        function goNext(from) {
+            var card = document.getElementById('cardInner');
+            card.classList.add('card-out');
+            setTimeout(function() {
+                document.getElementById('q' + from).style.display = 'none';
+                var next = document.getElementById('q' + (from + 1));
+                next.style.display = 'block';
+                updateProgress(from + 1);
+                card.classList.remove('card-out');
+                void card.offsetWidth;
+            }, 380);
+        }
+
+        function launchDash() {
+            localStorage.setItem('trip_answers', JSON.stringify(answers));
+            document.getElementById('quizScene').classList.add('exiting');
+            var trans = document.getElementById('transScreen');
+            trans.classList.add('show');
+            setTimeout(function() {
+                trans.style.opacity = '0';
+                document.getElementById('dashWrap').classList.add('show');
+                document.body.style.overflow = 'hidden';
+                initMap();
+            }, 1800);
+            setTimeout(function() { trans.style.display = 'none'; }, 2300);
+        }        /* ── GPS State ── */
+        var map, userMarker, destMarker, accuracyCircle;
+        var lat = 28.6139, lng = 77.2090;   // default fallback (Delhi)
+        var destLat = 28.6139, destLng = 77.2090;
+        var prevLat = lat, prevLng = lng;
+        var totalDist = 0, moveCount = 0;
+        var gpsWatchId = null;
+        var gpsReady = false;
+        var lastSpeed = 0;
+
+        /* ── Haversine distance (km) ── */
+        function haversine(la1, lo1, la2, lo2) {
+            var R = 6371;
+            var dLat = (la2 - la1) * Math.PI / 180;
+            var dLon = (lo2 - lo1) * Math.PI / 180;
+            var a = Math.sin(dLat/2)*Math.sin(dLat/2) +
+                    Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*
+                    Math.sin(dLon/2)*Math.sin(dLon/2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        }
+        
+        async function geocodeDestination() {
+            if (dest && dest !== 'Your Destination') {
+                try {
+                    let response = await fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(dest));
+                    let data = await response.json();
+                    if (data && data.length > 0) {
+                        destLat = parseFloat(data[0].lat);
+                        destLng = parseFloat(data[0].lon);
+                    }
+                } catch (e) {
+                    console.error("Geocoding failed", e);
+                }
+            } else {
+                destLat = lat + 0.045;
+                destLng = lng + 0.03;
+            }
+        }
+
+        async function initMap() {
+            await geocodeDestination();
+            
+            map = L.map('map', { zoomControl: false }).setView([lat, lng], 13);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors',
+                maxZoom: 19
+            }).addTo(map);
+
+            L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+            /* User marker - Blue */
+            var userIcon = L.divIcon({
+                className: '',
+                html: '<div style="width:16px;height:16px;background:#3b82f6;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 6px rgba(59,130,246,0.3),0 0 18px rgba(59,130,246,0.6);"></div>',
+                iconSize: [16,16], iconAnchor: [8,8]
+            });
+            userMarker = L.marker([lat, lng], { icon: userIcon }).addTo(map);
+
+            /* Accuracy circle */
+            accuracyCircle = L.circle([lat, lng], {
+                radius: 30, weight: 3, color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.15, weight: 1
+            }).addTo(map);
+
+            /* Destination marker */
+            var destIcon = L.divIcon({
+                className: 'dest-marker',
+                html: '<i class="fa-solid fa-location-dot" style="font-size:24px;color:#1F9D72;filter:drop-shadow(0 0 5px #1F9D72);"></i>',
+                iconSize: [24,24], iconAnchor: [12,24]
+            });
+            destMarker = L.marker([destLat, destLng], { icon: destIcon })
+                .addTo(map)
+                .bindPopup('<b style="color:#1F9D72;">' + loc + '</b>');
+
+            // Fit bounds to show both user and destination initially
+            var bounds = new L.LatLngBounds([lat, lng], [destLat, destLng]);
+            map.fitBounds(bounds, { padding: [50, 50] });
+            
+            // Generate Zones around Destination
+            
+            function formatLoc(str) {
+                if(!str) return '';
+                return str.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+            }
+            
+            var loc = formatLoc(dest);
+            
+            // --- LIVE WEATHER FETCH INITIAL ---
+            try {
+                let wRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${destLat}&longitude=${destLng}&current_weather=true`);
+                let wData = await wRes.json();
+                if(wData && wData.current_weather) {
+                    let temp = Math.round(wData.current_weather.temperature);
+                    let wCode = wData.current_weather.weathercode;
+                    document.getElementById('weatherTemp').textContent = temp + ' C';
+                    
+                    let condStr = 'Clear';
+                    let iconStr = 'Sunny';
+                    if(wCode >= 1 && wCode <= 3) { condStr = 'Partly Cloudy'; iconStr = 'Cloudy'; }
+                    else if(wCode >= 51 && wCode <= 67) { condStr = 'Rainy'; iconStr = 'Rain'; }
+                    else if(wCode >= 71) { condStr = 'Snow'; iconStr = 'Snow'; }
+                    else if(wCode >= 95) { condStr = 'Thunderstorm'; iconStr = 'Storm'; }
+                    
+                    document.getElementById('weatherCond').textContent = condStr;
+                    document.getElementById('weatherIcon').textContent = iconStr;
+                }
+            } catch(we) { console.log('Weather fetch failed'); }
+
+            
+window.dangerZones = [];
+
+            // DYNAMIC ZONES INITIAL
+            window.dangerZones = [];
+            
+            L.circle([destLat + 0.005, destLng + 0.005], {
+                radius: 400, weight: 3, color: '#22c55e', weight: 3, fill: true, fillColor: 'rgba(34,197,94,0.35)'
+            }).addTo(map).bindPopup('<b style="color:#22c55e">&#128994; Safe Zone ('+getRnd(safeSub)+', '+loc+')</b><br>Low Risk.<br><i>Reason: '+getRnd(safeR)+'</i>');
+            
+            L.circle([destLat - 0.008, destLng + 0.015], {
+                radius: 350, weight: 3, color: '#eab308', weight: 3, fill: true, fillColor: 'rgba(234,179,8,0.35)'
+            }).addTo(map).bindPopup('<b style="color:#eab308">&#128993; Connectivity Alert ('+getRnd(cautionSub)+', '+loc+')</b><br>Weak Signal.<br><i>Reason: Network drops.</i>');
+            
+            L.circle([destLat - 0.012, destLng - 0.005], {
+                radius: 500, weight: 3, color: '#f97316', weight: 3, fill: true, fillColor: 'rgba(249,115,22,0.35)'
+            }).addTo(map).bindPopup('<b style="color:#f97316">&#128992; Caution Area ('+getRnd(cautionSub)+', '+loc+')</b><br>Medium Risk.<br><i>Reason: '+getRnd(cautionR)+'</i>');
+            
+            var z4 = L.circle([destLat + 0.018, destLng - 0.008], {
+                radius: 300, weight: 3, color: '#ef4444', weight: 3, fill: true, fillColor: 'rgba(239,68,68,0.35)'
+            }).addTo(map).bindPopup('<b style="color:#ef4444">&#128308; Danger Zone ('+getRnd(dangerSub)+', '+loc+')</b><br>High Risk.<br><i>Reason: '+getRnd(dangerR)+'</i>');
+            window.dangerZones.push({lat: destLat + 0.018, lng: destLng - 0.008, radius: 300, name: 'Danger Zone', alerted: false});
+            
+            var z5 = L.circle([destLat + 0.01, destLng + 0.02], {
+                radius: 250, weight: 3, color: '#991b1b', weight: 3, fill: true, fillColor: 'rgba(153,27,27,0.35)'
+            }).addTo(map).bindPopup('<b style="color:#991b1b">&#128308; Critical Zone ('+getRnd(dangerSub)+', '+loc+')</b><br>Critical Risk.<br><i>Reason: '+getRnd(dangerR)+'</i>');
+            window.dangerZones.push({lat: destLat + 0.01, lng: destLng + 0.02, radius: 250, name: 'Critical Zone', alerted: false});
+
+            // 5. Critical Zone (High risk + Weak signal)
+            L.circle([destLat + 0.01, destLng + 0.02], {
+                radius: 250, weight: 3, color: '#991b1b', weight: 3,
+                fill: true, fillColor: 'rgba(153,27,27,0.35)', dashArray: '6 4'
+            }).addTo(map).bindPopup('<b style="color:#991b1b">&#128308; Critical Zone (Deep Forest Trail, ' + loc + ')</b><br>High Risk (>61%) & Weak Signal.<br><i>Reason: Isolated spot with no connectivity and high threat level. DO NOT ENTER.</i>');
+            window.dangerZones.push({lat: destLat + 0.01, lng: destLng + 0.02, radius: 250, name: 'Critical Zone'});
+
+            // Fetch Real-time Weather from Open-Meteo API
+            try {
+                let wRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${destLat}&longitude=${destLng}&current_weather=true`);
+                let wData = await wRes.json();
+                if(wData && wData.current_weather) {
+                    let temp = Math.round(wData.current_weather.temperature);
+                    let wCode = wData.current_weather.weathercode;
+                    document.getElementById('weatherTemp').textContent = temp + ' C';
+                    
+                    let condStr = 'Clear';
+                    let iconStr = 'Sunny';
+                    if(wCode >= 1 && wCode <= 3) { condStr = 'Partly Cloudy'; iconStr = 'Cloudy'; }
+                    else if(wCode >= 51 && wCode <= 67) { condStr = 'Rainy'; iconStr = 'Rain'; }
+                    else if(wCode >= 71) { condStr = 'Snow'; iconStr = 'Snow'; }
+                    else if(wCode >= 95) { condStr = 'Thunderstorm'; iconStr = 'Storm'; }
+                    
+                    document.getElementById('weatherCond').textContent = condStr;
+                    document.getElementById('weatherIcon').textContent = iconStr;
+                }
+            } catch(we) { console.log('Weather fetch failed'); }
+
+
+
+            updateCoords(lat, lng);
+
+            /* Start real GPS */
+            startRealGPS();
+            setTimeout(() => { map.invalidateSize(true); }, 500);
+            setTimeout(() => { map.invalidateSize(true); }, 1500);
+        }
+        
+        function checkDangerZones(la, lo) {
+            if (window.dangerZones) {
+                window.dangerZones.forEach(function(dz) {
+                    var dist = haversine(la, lo, dz.lat, dz.lng) * 1000;
+                    if (dist < dz.radius) {
+                        if (!dz.alerted) {
+                            alert("URGENT ALERT: You have entered a " + dz.name + " near your destination! This area is highly restricted based on live reports. Please turn back immediately for your safety.");
+                            dz.alerted = true;
+                            
+                            var statBtn = document.querySelector('.s-btn.green');
+                            if (statBtn) {
+                                statBtn.classList.remove('green');
+                                statBtn.style.background = 'rgba(239,68,68,0.2)';
+                                statBtn.style.color = '#ef4444';
+                                statBtn.style.border = '1px solid #ef4444';
+                                statBtn.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Danger Zone';
+                            }
+                        }
+                    } else {
+                        dz.alerted = false;
+                    }
+                });
+            }
+        }
+
+        /* ── Real GPS using browser Geolocation API ── */
+        function startRealGPS() {
+            if (!navigator.geolocation) {
+                setGPSStatus('error', 'GPS not supported', 'Using fallback');
+                startSimulatedGPS();
+                return;
+            }
+
+            setGPSStatus('acquiring', 'Acquiring GPS...', 'Requesting permission');
+
+            /* First: get immediate position */
+            navigator.geolocation.getCurrentPosition(
+                function(pos) {
+                    onGPSSuccess(pos);
+                    /* Then: watch for continuous updates */
+                    gpsWatchId = navigator.geolocation.watchPosition(
+                        onGPSSuccess,
+                        onGPSError,
+                        {
+                            enableHighAccuracy: true,
+                            timeout: 10000,
+                            maximumAge: 2000
+                        }
+                    );
+                },
+                function(err) {
+                    onGPSError(err);
+                },
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
+        }
+
+        /* ── Called every time GPS gives a new position ── */
+        function onGPSSuccess(position) {
+            var newLat = position.coords.latitude;
+            var newLng = position.coords.longitude;
+            var acc    = position.coords.accuracy;           
+            var spd    = position.coords.speed;              
+
+            if (!gpsReady) {
+                gpsReady = true;
+                lat = newLat; lng = newLng;
+                prevLat = lat; prevLng = lng;
+                map.setView([lat, lng], 13, { animate: true });
+                setGPSStatus('live', 'Live GPS Active', 'Accuracy: ±' + Math.round(acc) + 'm');
+            }
+
+            prevLat = lat; prevLng = lng;
+            lat = newLat; lng = newLng;
+
+            var newLL = new L.LatLng(lat, lng);
+            userMarker.setLatLng(newLL);
+            accuracyCircle.setLatLng(newLL);
+            accuracyCircle.setRadius(acc);
+            
+            // Only pan to user if not viewing destination explicitly 
+            // map.panTo(newLL, { animate: true, duration: 1.5 });
+
+            var d = haversine(prevLat, prevLng, lat, lng);
+            if (d > 0.001) {                              
+                totalDist += d;
+            }
+            document.getElementById('statDist').textContent =
+                totalDist < 1
+                    ? (totalDist * 1000).toFixed(0) + ' m'
+                    : totalDist.toFixed(2) + ' km';
+
+            if (spd !== null && spd >= 0) {
+                lastSpeed = Math.round(spd * 3.6);       
+            } else {
+                lastSpeed = Math.round(d * 1000 / 2 * 3.6);
+                lastSpeed = Math.min(lastSpeed, 200);
+            }
+            document.getElementById('speedVal').textContent = lastSpeed;
+
+            document.getElementById('hudAcc').textContent = 'Accuracy: ±' + Math.round(acc) + 'm';
+            updateCoords(lat, lng);
+            checkDangerZones(lat, lng);
+
+            moveCount++;
+            if (moveCount % 3 === 0) {
+                document.getElementById('timelineSub').textContent =
+                    totalDist < 1
+                        ? 'Moving... ' + (totalDist*1000).toFixed(0) + 'm covered'
+                        : 'Moving... ' + totalDist.toFixed(2) + 'km covered';
+            }
+        }
+
+        /* ── GPS Error handler ── */
+        function onGPSError(err) {
+            var msg = '';
+            switch(err.code) {
+                case 1: msg = 'Permission denied'; break;
+                case 2: msg = 'Position unavailable'; break;
+                case 3: msg = 'GPS timeout'; break;
+                default: msg = 'GPS error';
+            }
+            setGPSStatus('error', msg, 'Using IP fallback');
+            fetchIPLocation();
+        }
+
+        /* ── IP Geolocation fallback ── */
+        function fetchIPLocation() {
+            fetch('https://ipapi.co/json/')
+                .then(function(r){ return r.json(); })
+                .then(function(data) {
+                    if (data.latitude && data.longitude) {
+                        lat = parseFloat(data.latitude);
+                        lng = parseFloat(data.longitude);
+                        prevLat = lat; prevLng = lng;
+
+                        map.setView([lat, lng], 10, { animate: true });
+                        userMarker.setLatLng([lat, lng]);
+                        accuracyCircle.setLatLng([lat, lng]);
+                        accuracyCircle.setRadius(2000);
+
+                        updateCoords(lat, lng);
+                        setGPSStatus('ip', 'IP Location', data.city || 'Unknown city');
+                        startSimulatedGPS();
+                    }
+                })
+                .catch(function() {
+                    setGPSStatus('error', 'Fallback failed', 'Default: Delhi');
+                    startSimulatedGPS();
+                });
+        }
+
+        /* ── Simulated GPS movement towards destination ── */
+        function startSimulatedGPS() {
+            setInterval(function() {
+                prevLat = lat; prevLng = lng;
+                
+                // Move somewhat towards the destination to simulate travel!
+                var latDiff = destLat - lat;
+                var lngDiff = destLng - lng;
+                var distToDest = haversine(lat, lng, destLat, destLng);
+                
+                if (distToDest > 0.1) {
+                    lat += latDiff * 0.02 + (Math.random() * 0.0006);
+                    lng += lngDiff * 0.02 + (Math.random() * 0.0006);
+                } else {
+                    lat += (Math.random() * 0.0006) - 0.0003;
+                    lng += (Math.random() * 0.0006) - 0.0003;
+                }
+
+                var newLL = new L.LatLng(lat, lng);
+                userMarker.setLatLng(newLL);
+                accuracyCircle.setLatLng(newLL);
+                
+                var bounds = new L.LatLngBounds([lat, lng], [destLat, destLng]);
+                map.fitBounds(bounds, { padding: [50, 50], animate: true, duration: 1 });
+
+                var d = haversine(prevLat, prevLng, lat, lng);
+                totalDist += d;
+                document.getElementById('statDist').textContent =
+                    totalDist < 1 ? (totalDist*1000).toFixed(0) + ' m' : totalDist.toFixed(2) + ' km';
+
+                var simSpeed = Math.floor(Math.random() * 20) + 25;
+                document.getElementById('speedVal').textContent = simSpeed;
+                document.getElementById('hudAcc').textContent = 'Accuracy: ±50m (sim)';
+                
+                updateCoords(lat, lng);
+                checkDangerZones(lat, lng);
+                
+                moveCount++;
+                if (moveCount % 4 === 0) {
+                    document.getElementById('timelineSub').textContent =
+                        'Moving... ' + (totalDist*1000).toFixed(0) + 'm covered';
+                }
+            }, 3000);
+        }
+
+        /* ── GPS HUD status helper ── */
+        function setGPSStatus(state, label, sub) {
+            var dot  = document.querySelector('.gps-dot');
+            var lbl  = document.getElementById('hudLabel');
+            var hsub = document.getElementById('hudAcc');
+
+            if (lbl) lbl.textContent  = label;
+            if (hsub) hsub.textContent = sub;
+
+            if (dot) {
+                if (state === 'live')      dot.style.background = '#1F9D72';
+                else if (state === 'ip')   dot.style.background = '#f59e0b';
+                else if (state === 'error')dot.style.background = '#ef4444';
+                else                       dot.style.background = '#38bdf8';  /* acquiring */
+            }
+        }
+
+        function updateCoords(la, lo) {
+            var latDir = la >= 0 ? 'N' : 'S';
+            var lngDir = lo >= 0 ? 'E' : 'W';
+            document.getElementById('coordsText').textContent =
+                Math.abs(la).toFixed(5) + '° ' + latDir + ',  ' +
+                Math.abs(lo).toFixed(5) + '° ' + lngDir;
+        }
+
+        /* ── SOS ── */
+        function triggerSOS() {
+            document.getElementById('sosModalOverlay').style.display = 'flex';
+        }
+        
+        function closeSOS() {
+            document.getElementById('sosModalOverlay').style.display = 'none';
+        }
+
+        function dispatchSOS(serviceName, number) {
+            document.getElementById('sosModalOverlay').style.display = 'none';
+            var btn = document.getElementById('sosBtn');
+            var overlay = document.getElementById('sosOverlay');
+            
+            // Siren
+            try {
+                var ctx = new (window.AudioContext || window.webkitAudioContext)();
+                var osc = ctx.createOscillator();
+                var gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(800, ctx.currentTime);
+                osc.frequency.setValueAtTime(1200, ctx.currentTime + 0.2);
+                osc.frequency.setValueAtTime(800, ctx.currentTime + 0.4);
+                osc.frequency.setValueAtTime(1200, ctx.currentTime + 0.6);
+                gain.gain.setValueAtTime(0.15, ctx.currentTime);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.8);
+            } catch(e) {}
+            
+            btn.innerHTML = '<i class="fa-solid fa-satellite-dish fa-beat-fade"></i> Requesting ' + serviceName + '...';
+            btn.style.background = '#b91c1c';
+            btn.style.opacity = '0.9';
+            overlay.style.opacity = '1';
+            overlay.style.background = 'rgba(239, 68, 68, 0.4)';
+            
+            // Simulating SMS Dispatch
+            setTimeout(function() {
+                var smsMsg = "SYSTEM DISPATCH: SMS sent to " + emName + " (" + emPhone + ")\\n\\n";
+                smsMsg += "MESSAGE: [URGENT] I need " + serviceName + "!\\n";
+                smsMsg += "LIVE LOCATION: " + lat.toFixed(5) + ", " + lng.toFixed(5);
+                alert(smsMsg);
+                
+                // Proceed to dialer
+                overlay.style.background = 'rgba(239, 68, 68, 0.8)';
+                setTimeout(() => overlay.style.background = 'rgba(239, 68, 68, 0.4)', 200);
+                setTimeout(() => overlay.style.background = 'rgba(239, 68, 68, 0.8)', 400);
+                
+                setTimeout(function() {
+                    overlay.style.opacity = '0';
+                    btn.innerHTML = '<i class="fa-solid fa-check-double"></i> ' + serviceName + ' Alerted!';
+                    btn.style.background = 'linear-gradient(135deg,rgba(31,157,114,0.9),rgba(16,120,90,1))';
+                    btn.style.borderColor = 'rgba(31,157,114,0.8)';
+                    
+                    window.open('tel:' + number);
+                    
+                    setTimeout(function() {
+                        btn.innerHTML = '<i class="fa-solid fa-bell-exclamation"></i> SOS ALERT';
+                        btn.style.background = '';
+                        btn.style.borderColor = '';
+                        btn.style.opacity = '1';
+                    }, 5000);
+                }, 800);
+            }, 800);
+        }
+
+async function searchPlanningMap() {
+    var query = document.getElementById('planningSearchInput').value.trim();
+    if(!query) return;
+    
+    var btn = document.querySelector('button[onclick="searchPlanningMap()"]');
+    var oldText = btn.innerHTML;
+    btn.innerHTML = 'Searching...';
+    
+    try {
+        var res = await fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(query));
+        var data = await res.json();
+        
+        btn.innerHTML = oldText;
+        
+        if(data && data.length > 0) {
+            var sLat = parseFloat(data[0].lat);
+            var sLng = parseFloat(data[0].lon);
+            map.flyTo([sLat, sLng], 13, {animate: true, duration: 1.5});
+            
+            var loc = query.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+            
+            if(window.searchZones) {
+                window.searchZones.forEach(z => map.removeLayer(z));
+            }
+            window.searchZones = [];
+            
+            var z1 = L.circle([sLat + 0.005, sLng + 0.005], {radius: 400, weight: 3, color: '#22c55e', fill: true, fillColor: 'rgba(34,197,94,0.35)'}).addTo(map).bindPopup('<b style="color:#22c55e">&#128994; Safe Zone ('+getRnd(safeSub)+', '+loc+')</b><br>Low Risk.<br><i>Reason: '+getRnd(safeR)+'</i>');
+            var z2 = L.circle([sLat - 0.008, sLng + 0.015], {radius: 350, weight: 3, color: '#eab308', fill: true, fillColor: 'rgba(234,179,8,0.35)'}).addTo(map).bindPopup('<b style="color:#eab308">&#128993; Connectivity Alert ('+getRnd(cautionSub)+', '+loc+')</b><br>Weak Signal.<br><i>Reason: Network drops.</i>');
+            var z3 = L.circle([sLat - 0.012, sLng - 0.005], {radius: 500, weight: 3, color: '#f97316', fill: true, fillColor: 'rgba(249,115,22,0.35)'}).addTo(map).bindPopup('<b style="color:#f97316">&#128992; Caution Area ('+getRnd(cautionSub)+', '+loc+')</b><br>Medium Risk.<br><i>Reason: '+getRnd(cautionR)+'</i>');
+            var z4 = L.circle([sLat + 0.018, sLng - 0.008], {radius: 300, weight: 3, color: '#ef4444', fill: true, fillColor: 'rgba(239,68,68,0.35)'}).addTo(map).bindPopup('<b style="color:#ef4444">&#128308; Danger Zone ('+getRnd(dangerSub)+', '+loc+')</b><br>High Risk.<br><i>Reason: '+getRnd(dangerR)+'</i>');
+            var z5 = L.circle([sLat + 0.01, sLng + 0.02], {radius: 250, weight: 3, color: '#991b1b', fill: true, fillColor: 'rgba(153,27,27,0.35)'}).addTo(map).bindPopup('<b style="color:#991b1b">&#128308; Critical Zone ('+getRnd(dangerSub)+', '+loc+')</b><br>Critical Risk.<br><i>Reason: '+getRnd(dangerR)+'</i>');
+            
+            window.searchZones.push(z1, z2, z3, z4, z5);
+            
+            
+            if(window.searchMarker) map.removeLayer(window.searchMarker);
+            window.searchMarker = L.marker([sLat, sLng]).addTo(map).bindPopup('<b style="font-size:16px;">'+loc+'</b><br>Searched Location').openPopup();
+
+            // Fetch Real-time Weather from Open-Meteo API for SEARCHED location
+            try {
+                let wRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${sLat}&longitude=${sLng}&current_weather=true`);
+                let wData = await wRes.json();
+                if(wData && wData.current_weather) {
+                    let temp = Math.round(wData.current_weather.temperature);
+                    let wCode = wData.current_weather.weathercode;
+                    document.getElementById('weatherTemp').textContent = temp + ' C';
+                    
+                    let condStr = 'Clear';
+                    let iconStr = 'Sunny';
+                    if(wCode >= 1 && wCode <= 3) { condStr = 'Partly Cloudy'; iconStr = 'Cloudy'; }
+                    else if(wCode >= 51 && wCode <= 67) { condStr = 'Rainy'; iconStr = 'Rain'; }
+                    else if(wCode >= 71) { condStr = 'Snow'; iconStr = 'Snow'; }
+                    else if(wCode >= 95) { condStr = 'Thunderstorm'; iconStr = 'Storm'; }
+                    
+                    document.getElementById('weatherCond').textContent = condStr;
+                    document.getElementById('weatherIcon').textContent = iconStr;
+                }
+            } catch(we) { console.log('Weather fetch failed'); }
+
+
+        } else {
+            alert("Location not found! Try adding city or country name.");
+        }
+    } catch(e) {
+        btn.innerHTML = oldText;
+        console.error(e);
+        alert("Error fetching location.");
+    }
+}
+
+</script>
+</body>
+</html>
